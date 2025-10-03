@@ -1,0 +1,39 @@
+{
+  "name": "dota2-hue-sync",
+  "version": "1.0.0",
+  "description": "Dota 2 Game State Integration with Philips Hue lights",
+  "main": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run index.ts",
+    "showcase": "bun run scripts/showcase-effects.ts",
+    "typecheck": "bun node_modules/typescript/bin/tsc --noEmit",
+    "lint": "eslint '*.ts' 'src/**/*.ts' 'scripts/*.ts'",
+    "lint:fix": "eslint '*.ts' 'src/**/*.ts' 'scripts/*.ts' --fix"
+  },
+  "dependencies": {
+    "@nhuerta/node-hue-edk": "github:nhuerta/node-hue-edk#v1.0.0",
+    "dotenv": "^17.2.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.44.0",
+    "@typescript-eslint/parser": "^8.44.0",
+    "eslint": "^9.35.0",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "dota2",
+    "hue",
+    "gsi",
+    "lights",
+    "entertainment",
+    "philips-hue"
+  ],
+  "author": "nhuerta"
+}

@@ -1,0 +1,222 @@
+{
+  "version": "1.0",
+  "effects": {
+    "player:combat:kill": {
+      "enabled": true,
+      "type": "randomColorSequence",
+      "params": {
+        "duration": 3000
+      }
+    },
+    "player:combat:assist": {
+      "enabled": true,
+      "type": "rippleGradient",
+      "params": {
+        "color": "lightBlue",
+        "duration": 1000,
+        "runTime": 1500
+      }
+    },
+    "player:resources:level_up": {
+      "enabled": true,
+      "type": "gradientWave",
+      "params": {
+        "color1": "lightYellow",
+        "color2": "white",
+        "duration": 1500,
+        "runTime": 2000
+      }
+    },
+    "game:started": {
+      "enabled": true,
+      "type": "flashingColorSequence",
+      "params": {
+        "colorSequence": ["ghostWhite", "yellow", "gold", "darkOrange", "redOrange", "amber"],
+        "flashCount": 3,
+        "flashSpeed": 111
+      }
+    },
+    "hero:mirana:arrow_cast": {
+      "enabled": true,
+      "type": "bouncingWave",
+      "params": {
+        "color1": "cyan",
+        "color2": "white",
+        "speed": 400,
+        "runTime": 2000
+      }
+    },
+    "hero:mirana:starfall": {
+      "enabled": true,
+      "type": "meteorShower",
+      "params": {
+        "color1": "white",
+        "color2": "skyBlue",
+        "duration": 2500
+      }
+    },
+    "hero:mirana:leap": {
+      "enabled": true,
+      "type": "fadeBounce",
+      "params": {
+        "color1": "white",
+        "color2": "babyBlue",
+        "speed": 800,
+        "runTime": 1500
+      }
+    },
+    "hero:mirana:moonlight": {
+      "enabled": true,
+      "type": "pulseWave",
+      "params": {
+        "color1": "violet",
+        "color2": "darkViolet",
+        "speed": 3000,
+        "runTime": 5000
+      }
+    },
+    "hero:weaver:the_swarm": {
+      "enabled": true,
+      "type": "doubleBounce",
+      "params": {
+        "color1": "amber",
+        "color2": "darkOrange",
+        "speed": 800,
+        "runTime": 3000
+      }
+    },
+    "hero:weaver:shukuchi": {
+      "enabled": true,
+      "type": "fadeBounce",
+      "params": {
+        "color1": "sapphire",
+        "color2": "crimson",
+        "speed": 600,
+        "runTime": 2500
+      }
+    },
+    "hero:weaver:germinate_attack": {
+      "enabled": true,
+      "type": "doubleStrike",
+      "params": {
+        "color": "cyan",
+        "duration": 500
+      }
+    },
+    "hero:weaver:time_lapse": {
+      "enabled": true,
+      "type": "timeRewind",
+      "params": {
+        "color1": "violet",
+        "color2": "indigo",
+        "duration": 3000
+      }
+    },
+    "hero:dark_seer:vacuum": {
+      "enabled": true,
+      "type": "spiralVortex",
+      "params": {
+        "color1": "purple",
+        "color2": "violet",
+        "duration": 1500
+      }
+    },
+    "hero:dark_seer:ion_shell": {
+      "enabled": true,
+      "type": "pulseWave",
+      "params": {
+        "color1": "electricBlue",
+        "color2": "cyan",
+        "speed": 500,
+        "runTime": 3000
+      }
+    },
+    "hero:dark_seer:surge": {
+      "enabled": true,
+      "type": "energyBurst",
+      "params": {
+        "color": "emerald",
+        "duration": 2000
+      }
+    },
+    "hero:dark_seer:wall_of_replica": {
+      "enabled": true,
+      "type": "shockwave",
+      "params": {
+        "color": "indigo",
+        "duration": 4000
+      }
+    },
+    "hero:enchantress:untouchable": {
+      "enabled": true,
+      "type": "breathingGradient",
+      "params": {
+        "color1": "rose",
+        "color2": "coral",
+        "period": 2000,
+        "runTime": 2000
+      }
+    },
+    "hero:enchantress:enchant": {
+      "enabled": true,
+      "type": "fadeBounce",
+      "params": {
+        "color1": "pink",
+        "color2": "magenta",
+        "speed": 1200,
+        "runTime": 2500
+      }
+    },
+    "hero:enchantress:natures_attendants": {
+      "enabled": true,
+      "type": "pulseWave",
+      "params": {
+        "color1": "emerald",
+        "color2": "forestGreen",
+        "speed": 800,
+        "runTime": 4000
+      }
+    },
+    "hero:enchantress:impetus": {
+      "enabled": true,
+      "type": "energyBurst",
+      "params": {
+        "color": "orange",
+        "duration": 2000
+      }
+    },
+    "hero:spectre:spectral_dagger": {
+      "enabled": true,
+      "type": "poisonDrip",
+      "params": {
+        "duration": 2500
+      }
+    },
+    "hero:spectre:desolate": {
+      "enabled": true,
+      "type": "doubleStrike",
+      "params": {
+        "color": "darkViolet",
+        "duration": 400
+      }
+    },
+    "hero:spectre:dispersion": {
+      "enabled": true,
+      "type": "shockwave",
+      "params": {
+        "color": "violet",
+        "duration": 1500
+      }
+    },
+    "hero:spectre:haunt": {
+      "enabled": true,
+      "type": "doubleBounce",
+      "params": {
+        "color1": "darkViolet",
+        "color2": "ghostWhite",
+        "speed": 1200,
+        "runTime": 5000
+      }
+    }
+  }
+}
