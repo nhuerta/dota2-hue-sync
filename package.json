@@ -13,7 +13,7 @@
     "lint:fix": "eslint '*.ts' 'src/**/*.ts' 'scripts/*.ts' --fix"
   },
   "dependencies": {
-    "@nhuerta/node-hue-edk": "github:nhuerta/node-hue-edk#v1.0.0",
+    "@nhuerta/node-hue-edk": "github:nhuerta/node-hue-edk#v1.1.0",
     "dotenv": "^17.2.2"
   },
   "devDependencies": {

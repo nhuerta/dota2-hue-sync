@@ -7,6 +7,8 @@ import {APP_CONFIG} from '../config/app-config';
 
 export class DotaEffectManager {
     private hue: Hue;
+    private readonly INIT_ATTEMPTS = 6;
+    private readonly INIT_RETRY_MS = 3000;
     private eventDispatcher: EventDispatcher;
     private effectsConfig: EffectsConfiguration | null = null;
     private currentHealth: number = 100;
@@ -25,7 +27,17 @@ export class DotaEffectManager {
     }
 
     public async initialize(): Promise<boolean> {
-        const initialized = await this.hue.initialize();
+        // The bridge keeps a previous instance's stream registered for ~10 s after it dies,
+        // and the EDK then reports "streaming failed". Retry instead of giving up.
+        let initialized = false;
+        for (let attempt = 1; attempt <= this.INIT_ATTEMPTS && !initialized; attempt++) {
+            if (attempt > 1) {
+                console.log(`Hue initialization attempt ${attempt}/${this.INIT_ATTEMPTS} in ${this.INIT_RETRY_MS / 1000}s...`);
+                await new Promise(resolve => setTimeout(resolve, this.INIT_RETRY_MS));
+                this.hue = new Hue(APP_CONFIG);
+            }
+            initialized = await this.hue.initialize();
+        }
         if (!initialized) {
             return false;
         }
@@ -190,8 +202,11 @@ export class DotaEffectManager {
         }
 
         if (!this.isInGame) {
+            if (this.isBreathingActive) {
+                this.hue.stopCurrentEffect();
+                this.isBreathingActive = false;
+            }
             this.hue.setSolidColor(this.IDLE_COLOR);
-            this.isBreathingActive = false;
             return;
         }
 
@@ -199,12 +214,15 @@ export class DotaEffectManager {
 
         if (isCritical) {
             if (!this.isBreathingActive) {
+                console.log(`[effect] breathingGradient (critical health ${this.currentHealth}%)`);
                 this.hue.breathingGradient(COLORS.red, COLORS.black, 1500);
                 this.isBreathingActive = true;
             }
         } else {
             if (this.isBreathingActive) {
                 this.isBreathingActive = false;
+                this.hue.stopCurrentEffect();
+                console.log(`[effect] percentageBar (recovered to ${this.currentHealth}%)`);
                 this.hue.percentageBar(this.currentHealth);
             } else {
                 this.hue.percentageBar(this.currentHealth);
@@ -224,6 +242,7 @@ export class DotaEffectManager {
         this.clearDeathTimers();
 
 
+        console.log(`[effect] death sequence (respawn in ${respawnSeconds}s)`);
         this.hue.rippleGradient(COLORS.darkRed, 2000, 1000);
 
         this.deathEffectTimer = setTimeout(() => {
@@ -231,6 +250,7 @@ export class DotaEffectManager {
 
             if (respawnSeconds > 3) {
                 const remainingSeconds = respawnSeconds - 3;
+                console.log(`[effect] countdownPulse ${remainingSeconds}s`);
                 this.hue.countdownPulse(remainingSeconds);
 
                 this.deathCountdownTimer = setTimeout(() => {
@@ -243,6 +263,7 @@ export class DotaEffectManager {
     private onRespawn(): void {
         this.clearDeathTimers();
 
+        console.log('[effect] respawn gradientWave');
         this.hue.gradientWave(COLORS.brightGreen, COLORS.white, 1000, 1500);
 
         this.isAlive = true;

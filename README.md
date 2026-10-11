@@ -59,6 +59,15 @@ HUE_DEVICE_NAME=PC
 HUE_GROUP_ID=200
 ```
 
+`HUE_GROUP_ID` selects the entertainment area to stream to. It accepts the v1 numeric id (`200`), the Clip v2 UUID, or the area name as shown in the Hue app. Bridges with more than one entertainment area are supported; the area is resolved at startup and the available areas are listed if the value does not match.
+
+Getting the bridge id, username and client key: the bridge id comes from `http://<bridge-ip>/api/config`. The username and client key are issued once by pressing the link button and then running, within 30 seconds:
+
+```bash
+curl -X POST http://<bridge-ip>/api \
+  -d '{"devicetype":"dota2-gsi-entertainment#PC","generateclientkey":true}'
+```
+
 3. **Install Dota 2 GSI config**
 
 Copy `config/gamestate_integration_gsi.cfg` to:

@@ -43,10 +43,11 @@ initializeLightEffects();
 
 const gsiRouter = createGSIRoutes(eventDispatcher);
 
-Bun.serve({
+// Dota resolves "localhost" to ::1 first on Windows, so the listener must answer on
+// IPv6 as well as IPv4. Binding "::" gives a dual-stack socket; fall back to IPv4 only.
+const gsiServer = {
   port: 3003,
-  hostname: '0.0.0.0',
-  async fetch(request) {
+  async fetch(request: Request) {
     const url = new URL(request.url);
 
     if (request.method === 'OPTIONS') {
@@ -60,4 +61,10 @@ Bun.serve({
 
     return createResponse('Not Found', { status: 404 });
   }
-});
+};
+try {
+  Bun.serve({ ...gsiServer, hostname: '::' });
+} catch (error) {
+  console.log('Dual-stack listener unavailable, falling back to IPv4 only:', error);
+  Bun.serve({ ...gsiServer, hostname: '0.0.0.0' });
+}

@@ -46,6 +46,7 @@ export class EffectRegistry {
 
   public static execute(hue: Hue, effectType: string, params: EffectParams): void {
     try {
+      console.log(`[effect] ${effectType} ${JSON.stringify(params)}`);
       switch (effectType) {
         // Single color effects
         case 'flashColor':

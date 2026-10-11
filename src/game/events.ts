@@ -91,6 +91,14 @@ export interface GameEvent {
   data: EventData;
 }
 export type EventHandler = (event: GameEvent) => void | Promise<void>;
+// High-frequency events that would flood the console (every 100 ms tick)
+const QUIET_EVENTS = new Set<string>([
+  'gsi:data',
+  'player:resources:health_changed',
+  'player:resources:mana_changed',
+  'player:resources:gold_changed'
+]);
+
 export class EventDispatcher {
   private handlers: Map<GameEventType | string, Set<EventHandler>> = new Map();
 
@@ -108,6 +116,14 @@ export class EventDispatcher {
       gameTime,
       data
     };
+    if (!QUIET_EVENTS.has(eventType)) {
+      const d = data as Record<string, unknown>;
+      const extra = ['ability_name', 'kills', 'assists', 'level', 'health_percent', 'respawn_seconds', 'cold_start', 'error', 'context']
+        .filter(k => d[k] !== undefined)
+        .map(k => `${k}=${String(d[k])}`)
+        .join(' ');
+      console.log(`[event] ${eventType}${gameTime !== undefined ? ` t=${gameTime}` : ''}${extra ? ' ' + extra : ''}`);
+    }
     const handlers = this.handlers.get(eventType);
     if (handlers) {
       const promises = [];
