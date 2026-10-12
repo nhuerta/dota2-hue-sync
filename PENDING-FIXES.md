@@ -15,9 +15,6 @@ performance, design, maintainability); the items under "Done" are what closed ea
 
 ### Needs a decision
 
-- [ ] **Per-segment effects.** The Living Room entertainment area has one channel bundling all 7
-      gradient segments, so every effect is one colour. Recreate the area with per-segment positions
-      via `POST /clip/v2/resource/entertainment_configuration` to get 7 channels. Changes the bridge.
 - [ ] **Archive `dota2-hue`, `dota2-gsi-minimal`, `dota2-gsi-c` and `../old_shit`**; scrub the two
       committed OBS passwords first. Sibling repos, not touched from here.
 
@@ -36,6 +33,15 @@ performance, design, maintainability); the items under "Done" are what closed ea
 - [ ] `EventDispatcher` logs to the console itself; inject a logger if output ever needs routing.
 
 ## Done
+
+### 2026-10-12, third pass (entertainment channels)
+
+- [x] Living Room area placed end to end: 3 channels instead of 1, matching the wrapper's three
+      channel ids, so the health bar and waves now show across the strip. `bun run area-channels`
+      shows or applies the layout. Seven channels are not reachable for the Hue gradient lightstrip
+      (LCX004): the bridge allows two positions per light within -1..1, derives channels from their
+      spacing (3 end to end, 4 across the cube's diagonal) and rejects a `channels` PUT. Seven exist
+      only on the Play gradient lightstrip (LCX001).
 
 ### 2026-10-12, second pass (architecture)
 

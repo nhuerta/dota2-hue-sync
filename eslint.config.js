@@ -25,6 +25,8 @@ export default [
         URL: 'readonly',
         Request: 'readonly',
         Response: 'readonly',
+        RequestInit: 'readonly',
+        fetch: 'readonly',
         Buffer: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly'

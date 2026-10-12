@@ -8,6 +8,7 @@
   "scripts": {
     "start": "bun run index.ts",
     "showcase": "bun run scripts/showcase-effects.ts",
+    "area-channels": "bun run scripts/area-channels.ts",
     "typecheck": "bun node_modules/typescript/bin/tsc --noEmit",
     "lint": "eslint '*.ts' 'src/**/*.ts' 'scripts/*.ts' 'tests/**/*.ts'",
     "lint:fix": "eslint '*.ts' 'src/**/*.ts' 'scripts/*.ts' 'tests/**/*.ts' --fix",

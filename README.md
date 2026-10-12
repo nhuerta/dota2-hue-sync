@@ -25,6 +25,8 @@ HUE_GROUP_ID=200        # entertainment area: v1 id, Clip v2 UUID, or its name
 
 Dota only posts once you are in a lobby. The console prints one line per event and per light effect.
 
+Effects address the area's entertainment channels, which the bridge derives from where each light is placed. A gradient lightstrip placed as a single point is one channel, so every effect is one colour. `bun run area-channels` shows the channels of the configured area; `bun run area-channels --apply` places the strip from end to end, which gives the Hue gradient lightstrip (LCX004) its three segments, the same layout the Hue app uses. Seven channels exist only on the Play gradient lightstrip.
+
 ## What the lights do
 
 - **Ambient**: health bar gradient; red breathing under 20 % health; idle blue outside a match.
