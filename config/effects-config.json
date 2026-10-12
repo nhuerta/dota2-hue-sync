@@ -25,7 +25,8 @@
         "color2": "white",
         "duration": 1500,
         "runTime": 2000
-      }
+      },
+      "priority": "low"
     },
     "game:started": {
       "enabled": true,
@@ -161,7 +162,8 @@
       "params": {
         "color": "indigo",
         "duration": 4000
-      }
+      },
+      "priority": "high"
     },
     "hero:dark_seer:normal_punch": {
       "enabled": true,
@@ -188,6 +190,35 @@
         "color": "white",
         "duration": 250
       }
+    },
+    "item:arcane_boots": {
+      "enabled": true,
+      "type": "flashColor",
+      "params": {
+        "color": "electricBlue",
+        "duration": 400
+      }
+    },
+    "item:medallion_of_courage": {
+      "enabled": true,
+      "type": "flashColor",
+      "params": {
+        "color": "gold",
+        "duration": 400
+      }
+    },
+    "item:solar_crest": {
+      "enabled": true,
+      "type": "flashColor",
+      "params": {
+        "color": "gold",
+        "duration": 400
+      }
+    },
+    "item:shivas_guard": {
+      "enabled": true,
+      "type": "iceShatter",
+      "params": {}
     },
     "hero:enchantress:untouchable": {
       "enabled": true,
@@ -258,7 +289,8 @@
         "color2": "ghostWhite",
         "speed": 1200,
         "runTime": 5000
-      }
+      },
+      "priority": "high"
     },
     "player:combat:multikill": {
       "enabled": true,

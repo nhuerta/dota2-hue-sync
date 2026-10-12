@@ -133,6 +133,16 @@ describe('DotaEffectManager', () => {
     expect(calls.at(-1)).toBe('countdownPulse(20)'); // only the clock was re-synced
   });
 
+  test('a death after the match ended plays nothing', async () => {
+    const { clock, calls, emit, inGame } = setup();
+    await inGame();
+    await emit(GAME_EVENTS.GAME.ENDED, {});
+    calls.length = 0;
+    await emit(GAME_EVENTS.PLAYER.COMBAT.DEATH, { respawn_seconds: 84 });
+    clock.advance(5000);
+    expect(calls).toEqual([]);
+  });
+
   test('shutdown stops timers and the wrapper', () => {
     const { calls, manager } = setup();
     manager.shutdown();

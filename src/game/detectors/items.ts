@@ -14,7 +14,11 @@ const ITEM_EVENT_MAP: Record<string, (typeof GAME_EVENTS.ITEMS)[keyof typeof GAM
   item_mekansm: GAME_EVENTS.ITEMS.MEKANSM,
   item_guardian_greaves: GAME_EVENTS.ITEMS.GUARDIAN_GREAVES,
   item_pipe: GAME_EVENTS.ITEMS.PIPE,
-  item_tpscroll: GAME_EVENTS.ITEMS.TPSCROLL
+  item_tpscroll: GAME_EVENTS.ITEMS.TPSCROLL,
+  item_arcane_boots: GAME_EVENTS.ITEMS.ARCANE_BOOTS,
+  item_medallion_of_courage: GAME_EVENTS.ITEMS.MEDALLION_OF_COURAGE,
+  item_solar_crest: GAME_EVENTS.ITEMS.SOLAR_CREST,
+  item_shivas_guard: GAME_EVENTS.ITEMS.SHIVAS_GUARD
 };
 
 /**

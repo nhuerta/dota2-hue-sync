@@ -7,9 +7,6 @@ performance, design, maintainability); the items under "Done" are what closed ea
 
 ### Needs a live match
 
-- [ ] **Play a match with `GSI_RECORD_DIR` set.** The scheduler, the game-clock countdown across a
-      pause, buyback, and the idle drop on disconnect are covered by replay, synthetic frames and
-      manager tests, but not by a real game yet. Gzip the recording into `fixtures/` afterwards.
 - [ ] **Check what `player.kill_streak` counts.** The fixture shows a streak of 7 with 3 kills; spree
       thresholds assume it is consecutive kills without dying.
 
@@ -33,6 +30,18 @@ performance, design, maintainability); the items under "Done" are what closed ea
 - [ ] `EventDispatcher` logs to the console itself; inject a logger if output ever needs routing.
 
 ## Done
+
+### 2026-10-12, live Dark Seer match (9041920415, 42 min, recorded to `fixtures/match_9041920415.jsonl.gz`)
+
+- [x] Scheduler, death countdown with re-sync across a pause, buyback, idle on disconnect and
+      reconnect all behaved on real lights. Restarting mid-match now adopts the live state.
+- [x] Found and fixed live: listener started before the lights subscribed; reconnect while dead
+      ran the start flash over the ripple and a second ripple; a death on the post-game screen
+      started an 84 s countdown over idle; level-up effects blocked ability casts; the ultimate
+      was dropped behind a level-up.
+- [x] Added: Dark Seer Normal Punch; per-item events (Soul Ring, Blink, Arcane Boots, Medallion,
+      Solar Crest, Shiva's Guard, ...) firing once per cast; Ion Shell shortened to 1.5 s (cast
+      every 12 s); item and map event names in the log.
 
 ### 2026-10-12, third pass (entertainment channels)
 

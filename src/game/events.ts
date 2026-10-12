@@ -101,7 +101,11 @@ export const GAME_EVENTS = {
         MEKANSM: 'item:mekansm',
         GUARDIAN_GREAVES: 'item:guardian_greaves',
         PIPE: 'item:pipe',
-        TPSCROLL: 'item:tpscroll'
+        TPSCROLL: 'item:tpscroll',
+        ARCANE_BOOTS: 'item:arcane_boots',
+        MEDALLION_OF_COURAGE: 'item:medallion_of_courage',
+        SOLAR_CREST: 'item:solar_crest',
+        SHIVAS_GUARD: 'item:shivas_guard'
     },
 } as const;
 type Leaves<T> = T extends string ? T : { [K in keyof T]: Leaves<T[K]> }[keyof T];

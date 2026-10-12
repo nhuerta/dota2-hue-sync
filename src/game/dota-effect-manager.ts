@@ -199,6 +199,10 @@ export class DotaEffectManager {
   }
 
   private onDeath(respawnSeconds: number): void {
+    if (!this.isInGame) {
+      // Deaths on the post-game screen or in a lobby are not a sequence worth 80 s of countdown.
+      return;
+    }
     if (!this.isAlive) {
       // Already running the death sequence (a reconnect reports the death again): keep it, re-sync the clock.
       this.onRespawnTick(respawnSeconds);
