@@ -1,30 +1,23 @@
 # Dota 2 Hue Sync
 
-Synchronizes Philips Hue lights with Dota 2 gameplay using Game State Integration (GSI). Real-time lighting effects triggered by in-game events.
+Synchronizes Philips Hue entertainment lights with Dota 2 through Game State Integration (GSI). Dota posts its state to a local HTTP server every 100 ms; the server turns state changes into game events and the events into light effects.
 
 ## Features
 
-**Game Event Synchronization**
-- Health bar visualization (dynamic color gradient)
-- Death/respawn effects (ripple, countdown, revival flash)
-- Level up celebrations
-- Kill/death notifications
-- Item purchases
-- Ability usage (hero-specific effects)
-- Critical health breathing effect (< 20% HP)
+**Ambient layer** (always on while nothing else plays)
+- Health bar: green to red gradient following hero health
+- Critical health (≤ 20 %): red breathing
+- Out of game: steady idle blue
 
-**Supported Heroes (Custom Ability Effects)**
-- Mirana (Arrow, Starfall, Leap, Moonlight Shadow)
-- Weaver (Swarm, Shukuchi, Germinate Attack, Time Lapse)
-- Dark Seer (Vacuum, Ion Shell, Surge, Wall of Replica)
-- Enchantress (Untouchable, Enchant, Nature's Attendants, Impetus)
-- Spectre (Spectral Dagger, Desolate, Dispersion, Haunt)
+**Event effects** (scheduled by priority, see below)
+- Death: red ripple, then a countdown pulse that follows the game's own respawn timer, then a respawn flash
+- Buyback, kill, assist, first blood, multikill (double to rampage), killing spree (3 to 10+)
+- Level up, match start
+- Hero-specific abilities for Mirana, Weaver, Dark Seer, Enchantress, Spectre
+- Map events from the GSI `events` node: Roshan, aegis, courier, bounty rune
+- Hero status flags (stunned, silenced, hexed, …) as events you can map to effects
 
-**Configurable Effects**
-- JSON-based effect configuration (`config/effects-config.json`)
-- Enable/disable individual effects
-- Customize colors, durations, and parameters
-- Validated against available color palette
+Everything is configurable in `config/effects-config.json`.
 
 ## Installation
 
@@ -32,8 +25,7 @@ Synchronizes Philips Hue lights with Dota 2 gameplay using Game State Integratio
 
 - Bun runtime
 - Dota 2
-- Philips Hue Bridge with Entertainment API
-- Hue Entertainment group configured
+- Philips Hue bridge with an entertainment area that contains your lights
 
 ### Setup
 
@@ -47,7 +39,7 @@ bun install
 
 2. **Configure environment**
 
-Create `.env` file:
+Create a `.env` file:
 
 ```env
 HUE_BRIDGE_ID=your-bridge-id
@@ -68,15 +60,25 @@ curl -X POST http://<bridge-ip>/api \
   -d '{"devicetype":"dota2-gsi-entertainment#PC","generateclientkey":true}'
 ```
 
-3. **Install Dota 2 GSI config**
+Optional variables:
+
+| Variable | Effect |
+| --- | --- |
+| `GSI_RECORD_DIR` | Record every incoming frame to `<dir>/gsi-<timestamp>.jsonl` for replay and tests |
+| `GSI_AUTH_TOKEN` | Reject frames whose `auth.token` does not match (set the same value in the GSI cfg) |
+| `GSI_ALLOW_REMOTE` | `1` accepts senders other than loopback; off by default |
+
+3. **Install the Dota 2 GSI config**
 
 Copy `config/gamestate_integration_gsi.cfg` to:
 
 ```
 Windows: C:\Program Files (x86)\Steam\steamapps\common\dota 2 beta\game\dota\cfg\gamestate_integration\
-macOS: ~/Library/Application Support/Steam/steamapps/common/dota 2 beta/game/dota/cfg/gamestate_integration/
-Linux: ~/.steam/steam/steamapps/common/dota 2 beta/game/dota/cfg/gamestate_integration/
+macOS:   ~/Library/Application Support/Steam/steamapps/common/dota 2 beta/game/dota/cfg/gamestate_integration/
+Linux:   ~/.steam/steam/steamapps/common/dota 2 beta/game/dota/cfg/gamestate_integration/
 ```
+
+Restart Dota after adding it. Dota only starts posting once you are in a lobby or match.
 
 4. **Start the server**
 
@@ -84,160 +86,99 @@ Linux: ~/.steam/steam/steamapps/common/dota 2 beta/game/dota/cfg/gamestate_integ
 bun run start
 ```
 
-Server listens on `http://localhost:3003`
+The server listens on `http://localhost:3003` (IPv4 and IPv6).
 
 ## Configuration
 
-### Effect Configuration
+### Effects
 
-Edit `config/effects-config.json` to customize effects:
+Each entry in `config/effects-config.json` maps an event key to an effect:
 
 ```json
 {
   "version": "1.0",
   "effects": {
-    "player.combat.kill": {
+    "player:combat:kill": {
       "enabled": true,
-      "type": "flashColor",
-      "params": {
-        "color": "brightGreen",
-        "duration": 500
-      }
+      "type": "randomColorSequence",
+      "params": { "duration": 3000 },
+      "priority": "high"
     }
   }
 }
 ```
 
-**Available effect types:**
-- `flashColor` - Quick bright flash
-- `gradientWave` - Smooth color wave
-- `rippleGradient` - Center-out ripple
-- `explosionFlash` - Explosion with decay
-- `lightningStrike` - Lightning effect
-- `pulseWave` - Pulsing colors
-- Many more (see [node-hue-edk EFFECTS.md](https://github.com/nhuerta/node-hue-edk/blob/main/EFFECTS.md))
+- `type` is any effect from [node-hue-edk](https://github.com/nhuerta/node-hue-edk/blob/main/EFFECTS.md), e.g. `flashColor`, `gradientWave`, `rippleGradient`, `pulseWave`, `meteorShower`, `flashingColorSequence`.
+- `params` are validated at load time; colour names must exist in the wrapper's `COLORS`.
+- `runTime` or `duration` decides how long the effect owns the strip (default 2000 ms).
+- `priority` is optional: `low`, `normal`, `high` or `critical`. Defaults: kills, buyback, Roshan and aegis are `high`; assists, level-ups and courier kills are `normal`; `game:*` events are `critical`; everything else is `low`.
 
-### Game Events
+Unknown event keys are rejected when the config loads, so a typo cannot register a handler that never fires.
 
-Available event triggers:
+### Event keys
 
-**Player Events:**
-- `player.combat.kill` - Player kills enemy
-- `player.combat.death` - Player dies
-- `player.combat.respawn` - Player respawns
-- `player.combat.buyback` - Player buybacks
-- `player.resources.level_up` - Level up
-- `player.resources.health_changed` - Health updates
+Keys use colons.
 
-**Item/Ability Events:**
-- `player.items.purchased` - Item bought
-- `player.abilities.level_up` - Ability leveled
-- `abilities.<hero>.<ability>` - Hero-specific ability used
+| Group | Keys |
+| --- | --- |
+| Connection | `gsi:connected`, `gsi:disconnected`, `gsi:error` |
+| Match | `game:started`, `game:ended`, `game:first_blood`, `game:paused`, `game:unpaused`, `game:reconnected` |
+| Combat | `player:combat:kill`, `player:combat:assist`, `player:combat:death`, `player:combat:respawn`, `player:combat:buyback`, `player:combat:multikill`, `player:combat:spree` |
+| Resources | `player:resources:level_up`, `player:resources:health_changed`, `player:resources:mana_changed`, `player:resources:gold_changed` |
+| Items | `player:items:purchased`, `player:items:used`, `player:items:dropped` |
+| Abilities | `player:abilities:used`, `player:abilities:upgraded` |
+| Status flags | `player:status:stunned`, `silenced`, `disarmed`, `magic_immune`, `hexed`, `muted`, `break`, `smoked` (data has `active: true/false`) |
+| Map | `map:roshan_killed`, `map:aegis_picked_up`, `map:aegis_denied`, `map:courier_killed`, `map:bounty_rune_pickup`, `map:tip` |
+| Mirana | `hero:mirana:arrow_cast`, `starfall`, `leap`, `moonlight`, `celestial_quiver` |
+| Weaver | `hero:weaver:the_swarm`, `shukuchi`, `germinate_attack`, `time_lapse` |
+| Dark Seer | `hero:dark_seer:vacuum`, `ion_shell`, `surge`, `wall_of_replica` |
+| Enchantress | `hero:enchantress:untouchable`, `enchant`, `natures_attendants`, `impetus` |
+| Spectre | `hero:spectre:spectral_dagger`, `desolate`, `dispersion`, `haunt` |
 
-**Game Events:**
-- `game.started` - Match begins
-- `game.ended` - Match ends
-- `gsi.connected` - GSI connection established
+The full list lives in `GAME_EVENTS` in `src/game/events.ts`; the `GameEventType` type is derived from it.
 
-## Architecture
-
-**Components:**
-
-1. **GSI Server** (`src/server/`)
-   - Bun HTTP server on port 3003
-   - Receives POST requests from Dota 2
-   - Validates and routes game state data
-
-2. **Event System** (`src/game/events.ts`)
-   - Central event dispatcher
-   - Wildcard support for debugging
-   - Type-safe event definitions
-
-3. **Event Detection** (`src/game/detector.ts`)
-   - Compares current vs previous game state
-   - Detects state changes (kills, deaths, purchases, etc.)
-   - Emits events to dispatcher
-
-4. **Effect Manager** (`src/game/dota-effect-manager.ts`)
-   - Maps events to light effects
-   - Manages effect priorities and interruption
-   - Handles health visualization
-   - Controls death/respawn sequences
-
-5. **Effect Registry** (`src/game/effect-registry.ts`)
-   - Effect type definitions
-   - Parameter validation
-   - Color name resolution
-
-6. **Hue Integration** (`@nhuerta/node-hue-edk`)
-   - Native C++ wrapper for Hue EDK
-   - 40+ pre-built light effects
-   - See [node-hue-edk](https://github.com/nhuerta/node-hue-edk)
-
-**Data Flow:**
+## How it works
 
 ```
-Dota 2 → GSI → HTTP POST → GSI Router → Event Detector → Event Dispatcher → Effect Manager → Hue Lights
+Dota 2 → HTTP POST → routes.ts (ingest) → GameEventDetector → EventDispatcher → DotaEffectManager → EffectScheduler → Hue
 ```
+
+1. **Ingest** (`src/server/routes.ts`): records the frame if `GSI_RECORD_DIR` is set, tracks the connection (a watchdog fires `gsi:disconnected` after 10 s without frames), hands the frame to the detector.
+2. **Detector** (`src/game/detector.ts`): diffs the frame against Dota's `previously` block, or against the last frame it saw when `previously` is missing (heartbeats, first frame after a pause). Only the very first frame, or a change of match id, is a cold start. Death and respawn follow `hero.alive`; buyback follows `hero.buyback_cooldown`; match end follows `POST_GAME` or `win_team`; item purchases and drops are diffed by name so recipe combines and slot moves are not drops.
+3. **Scheduler** (`src/game/effect-scheduler.ts`): a priority queue. A request preempts a running effect of lower priority, waits behind one of equal or higher priority, and is dropped if it waited more than 4 s. Every effect has a finite duration. The ambient layer is a painter that runs whenever the queue is empty; it is replaced, never queued.
+4. **Manager** (`src/game/dota-effect-manager.ts`): maps events to scheduler requests, paints the ambient layer, and runs the death sequence. The countdown is re-synced from `hero.respawn_seconds`, so a pause does not desync it. When Dota stops posting (pause, leaving, often before `POST_GAME`) the lights drop to idle until frames return.
+5. **Hue** (`@nhuerta/node-hue-edk`): native wrapper around the Hue Entertainment Development Kit streaming at 60 Hz.
 
 ## Development
 
-**Scripts:**
-
 ```bash
-bun run start      # Start GSI server
-bun run showcase   # Test effects interactively
-bun run typecheck  # TypeScript validation
-bun run lint       # ESLint check
-bun run lint:fix   # Auto-fix linting issues
+bun run start      # Start the GSI server
+bun run test       # Replay the recorded match and synthetic sequences through the detector; scheduler tests
+bun run showcase   # Interactive effect browser against the real lights
+bun run typecheck
+bun run lint
 ```
 
-**Testing Effects:**
+### Fixtures and replay
 
-Use the showcase tool to test effects without running Dota 2:
+`fixtures/match_8200614096.jsonl.gz` is a complete recorded Mirana match (1,924 unique frames including 18 heartbeats, 3 deaths, every game-state transition). `tests/detector.test.ts` replays it through the same ingest path the server uses and asserts the emitted event sequence; the capture timestamps drive the clock, so gaps produce the same disconnects the watchdog would.
 
-```bash
-bun run showcase
-```
+To add a match: run with `GSI_RECORD_DIR=recordings`, play, then gzip the `.jsonl`. Old-format logs are imported with `python -I scripts/import-fixtures.py <logs-dir> <out.jsonl.gz>`.
 
-Interactive menu allows triggering any effect with custom parameters.
-
-## How It Works
-
-1. **Dota 2 sends game state** to `http://localhost:3003/` every 100ms
-2. **GSI server** receives and validates JSON payload
-3. **Event detector** compares state changes (previous vs current)
-4. **Events are emitted** for detected changes
-5. **Effect manager** listens and triggers corresponding light effects
-6. **Hue wrapper** sends commands to entertainment group via native EDK
-
-**Effect Priority System:**
-- Active effects can be interrupted by new events
-- Health display runs continuously when idle
-- Death effects block non-critical effects
-- Effect timers manage cleanup and restoration
-
-**Special Behaviors:**
-- Health < 20%: Breathing red effect
-- Death: Ripple → countdown → respawn flash
-- Game end: Clears all effects, resets state
+`src/testing/replay.ts` exposes `loadFixture`, `replayFrames` and a `RecordingDispatcher` for new tests.
 
 ## Troubleshooting
 
-**Lights not responding:**
-- Verify `.env` credentials are correct
-- Check Hue bridge is on same network
-- Ensure entertainment group is activated
-- Run `bun run showcase` to test connection
+**Lights not responding**
+- Check the `.env` credentials and that the bridge is on the same network.
+- Only one application can stream to an entertainment area; the bridge holds a previous instance's stream for about 10 s after it dies. Initialization retries six times, three seconds apart.
+- `bun run showcase` tests the connection without Dota.
 
-**GSI not working:**
-- Verify `gamestate_integration_gsi.cfg` is in correct directory
-- Restart Dota 2 after adding config
-- Check server is running on port 3003
-- Look for "GSI Connected" message in console
+**GSI not working**
+- Verify the cfg is in the right directory and Dota was restarted.
+- Dota posts nothing until you are in a lobby. Look for `[gsi] connected on frame:` in the console.
+- If `GSI_AUTH_TOKEN` is set, the token in the cfg must match (frames are answered with 401 otherwise).
 
-**Effects not triggering:**
-- Check `config/effects-config.json` has `"enabled": true`
-- Verify color names are valid (see COLORS in node-hue-edk)
-- Review console for validation errors
-
+**Effects not triggering**
+- `"enabled": true` in `config/effects-config.json`, valid colour names, and a known event key (the loader reports the offending key).
+- The console logs `[event] …` for every detected event and `[scheduler] …` for every start, queue, drop and finish.

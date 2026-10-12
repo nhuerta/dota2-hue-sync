@@ -31,7 +31,14 @@
       "enabled": true,
       "type": "flashingColorSequence",
       "params": {
-        "colorSequence": ["ghostWhite", "yellow", "gold", "darkOrange", "redOrange", "amber"],
+        "colorSequence": [
+          "ghostWhite",
+          "yellow",
+          "gold",
+          "darkOrange",
+          "redOrange",
+          "amber"
+        ],
         "flashCount": 3,
         "flashSpeed": 111
       }
@@ -73,6 +80,15 @@
         "color2": "darkViolet",
         "speed": 3000,
         "runTime": 5000
+      }
+    },
+    "hero:mirana:celestial_quiver": {
+      "enabled": true,
+      "type": "chaseGradient",
+      "params": {
+        "color": "iceBlue",
+        "speed": 250,
+        "runTime": 1200
       }
     },
     "hero:weaver:the_swarm": {
@@ -217,6 +233,49 @@
         "speed": 1200,
         "runTime": 5000
       }
+    },
+    "player:combat:multikill": {
+      "enabled": true,
+      "type": "flashingColorSequence",
+      "params": {
+        "colorSequence": [
+          "gold",
+          "white",
+          "orange",
+          "white"
+        ],
+        "flashCount": 6,
+        "flashSpeed": 120
+      },
+      "priority": "high"
+    },
+    "player:combat:spree": {
+      "enabled": true,
+      "type": "pulseWave",
+      "params": {
+        "color1": "scarlet",
+        "color2": "gold",
+        "speed": 300,
+        "runTime": 2500
+      },
+      "priority": "high"
+    },
+    "player:combat:buyback": {
+      "enabled": true,
+      "type": "energyBurst",
+      "params": {
+        "color": "gold",
+        "duration": 1500
+      }
+    },
+    "game:first_blood": {
+      "enabled": true,
+      "type": "doubleStrike",
+      "params": {
+        "color": "bloodRed",
+        "duration": 600
+      },
+      "priority": "high"
     }
   }
 }

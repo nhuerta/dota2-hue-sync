@@ -9,24 +9,30 @@ export interface GSIState {
   eventDispatcher: EventDispatcher;
   gameEventDetector: GameEventDetector;
   recorder: FrameRecorder | null;
+  /** When set, frames whose auth.token differs are rejected (GSI_AUTH_TOKEN). */
+  authToken: string | null;
   isConnected: boolean;
   lastDataReceived: number;
 }
 
 let watchdogInterval: ReturnType<typeof setInterval> | null = null;
 
-export function createGSIState(eventDispatcher: EventDispatcher, recorder: FrameRecorder | null = null): GSIState {
+export function createGSIState(eventDispatcher: EventDispatcher, recorder: FrameRecorder | null = null, authToken: string | null = null): GSIState {
   return {
     eventDispatcher,
     gameEventDetector: new GameEventDetector(eventDispatcher),
     recorder,
+    authToken,
     isConnected: false,
     lastDataReceived: Date.now()
   };
 }
 
 export function createGSIRoutes(eventDispatcher: EventDispatcher) {
-  const state = createGSIState(eventDispatcher, createRecorderFromEnv());
+  const state = createGSIState(eventDispatcher, createRecorderFromEnv(), process.env.GSI_AUTH_TOKEN || null);
+  if (state.authToken) {
+    console.log('GSI auth token required on every frame');
+  }
   startConnectionWatchdog(state);
   return {
     state,
@@ -112,7 +118,11 @@ async function handleGSIData(request: Request, state: GSIState): Promise<Respons
       await state.eventDispatcher.emit(GAME_EVENTS.GSI.ERROR, { error: 'Invalid GSI data format' });
       return new Response('Invalid data format', { status: 400 });
     }
-    await ingestGSIData(rawData as Dota2GameState, state);
+    const gsiData = rawData as Dota2GameState;
+    if (state.authToken && gsiData.auth?.token !== state.authToken) {
+      return new Response('Bad auth token', { status: 401 });
+    }
+    await ingestGSIData(gsiData, state);
     return new Response('', { status: 200 });
   } catch (error) {
     await state.eventDispatcher.emit(GAME_EVENTS.GSI.ERROR, { error: String(error) });

@@ -2,7 +2,7 @@
 
 import * as dotenv from 'dotenv';
 import { Hue, COLORS, type Color } from '@nhuerta/node-hue-edk';
-import { EFFECT_REGISTRY } from './effect-registry.ts';
+import { EFFECT_REGISTRY } from './showcase-catalog.ts';
 import { APP_CONFIG } from '../src/config/app-config';
 import * as readline from 'readline';
 

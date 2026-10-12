@@ -2,7 +2,7 @@ import { EventDispatcher, type EventData, type GameEventType } from './events';
 import { GAME_EVENTS } from './events';
 import type { Dota2GameState, GameEvent as MapEvent, Hero } from './dota2-types';
 import { getNumber } from '../server/utils';
-import { THRESHOLDS, RESPAWN_FORMULA, GAME_STATES } from './constants';
+import { THRESHOLDS, RESPAWN_FORMULA, GAME_STATES, KILL_STREAK } from './constants';
 
 const HERO_ABILITY_MAP: Record<string, Record<string, GameEventType>> = {
   'npc_dota_hero_mirana': {
@@ -10,7 +10,8 @@ const HERO_ABILITY_MAP: Record<string, Record<string, GameEventType>> = {
     'mirana_starfall': GAME_EVENTS.HEROES.MIRANA.STARFALL,
     'mirana_leap': GAME_EVENTS.HEROES.MIRANA.LEAP,
     'mirana_invis': GAME_EVENTS.HEROES.MIRANA.MOONLIGHT,
-    'mirana_moonlight': GAME_EVENTS.HEROES.MIRANA.MOONLIGHT
+    'mirana_moonlight': GAME_EVENTS.HEROES.MIRANA.MOONLIGHT,
+    'mirana_celestial_quiver': GAME_EVENTS.HEROES.MIRANA.CELESTIAL_QUIVER
   },
   'npc_dota_hero_weaver': {
     'weaver_the_swarm': GAME_EVENTS.HEROES.WEAVER.THE_SWARM,
@@ -77,6 +78,8 @@ export class GameEventDetector {
   private endedMatchId: string | null = null;
   private buybackPending = false;
   private seenMapEvents = new Set<string>();
+  private lastKillGameTime: number | null = null;
+  private multikillCount = 0;
 
   constructor(eventDispatcher: EventDispatcher) {
     this.eventDispatcher = eventDispatcher;
@@ -88,6 +91,8 @@ export class GameEventDetector {
     this.endedMatchId = null;
     this.buybackPending = false;
     this.seenMapEvents.clear();
+    this.lastKillGameTime = null;
+    this.multikillCount = 0;
   }
 
   private buildCommonEventData(current: Dota2GameState, additionalData: Partial<EventData> = {}): EventData {
@@ -439,7 +444,19 @@ export class GameEventDetector {
             }),
             gameTime
           );
+          await this.detectMultikill(current, killCount, gameTime);
         }
+      }
+      const prevStreak = previous.player.kill_streak;
+      const currStreak = current.player?.kill_streak;
+      if (prevStreak !== undefined && currStreak !== undefined && currStreak > prevStreak && currStreak >= 3) {
+        await this.eventDispatcher.emit(GAME_EVENTS.PLAYER.COMBAT.SPREE,
+          this.buildCommonEventData(current, {
+            kill_streak: currStreak,
+            spree: KILL_STREAK.SPREE_NAMES[Math.min(currStreak, 10)]
+          }),
+          gameTime
+        );
       }
       if (previous.player.assists !== undefined && current.player?.assists) {
         if (current.player.assists > previous.player.assists) {
@@ -454,6 +471,22 @@ export class GameEventDetector {
           );
         }
       }
+    }
+  }
+
+  /** Consecutive own kills within the multikill window: double, triple, ultra, rampage. */
+  private async detectMultikill(current: Dota2GameState, killCount: number, gameTime: number): Promise<void> {
+    const withinWindow = this.lastKillGameTime !== null && gameTime - this.lastKillGameTime <= KILL_STREAK.MULTIKILL_WINDOW_S;
+    this.multikillCount = withinWindow ? this.multikillCount + killCount : killCount;
+    this.lastKillGameTime = gameTime;
+    if (this.multikillCount >= 2) {
+      await this.eventDispatcher.emit(GAME_EVENTS.PLAYER.COMBAT.MULTIKILL,
+        this.buildCommonEventData(current, {
+          multikill: this.multikillCount,
+          multikill_name: KILL_STREAK.MULTIKILL_NAMES[Math.min(this.multikillCount, 5)]
+        }),
+        gameTime
+      );
     }
   }
 
@@ -588,6 +621,23 @@ export class GameEventDetector {
           await this.emitGameEnded(current, matchId, gameTime);
         }
       }
+    }
+    // `previously` only carries the score that changed; the other one is unchanged from `current`.
+    const scoreChanged = previous.map?.radiant_score !== undefined || previous.map?.dire_score !== undefined;
+    const prevScore = getNumber(previous.map?.radiant_score, getNumber(current.map?.radiant_score))
+      + getNumber(previous.map?.dire_score, getNumber(current.map?.dire_score));
+    if (scoreChanged && prevScore === 0 && current.map &&
+        getNumber(current.map.radiant_score) + getNumber(current.map.dire_score) > 0) {
+      const radiant = getNumber(current.map.radiant_score) > 0;
+      const team = radiant ? 'radiant' : 'dire';
+      await this.eventDispatcher.emit(GAME_EVENTS.GAME.FIRST_BLOOD,
+        this.buildCommonEventData(current, {
+          team,
+          own_team: current.player?.team_name === team,
+          own_kill: (current.player?.kills ?? 0) > getNumber(previous.player?.kills, current.player?.kills ?? 0)
+        }),
+        gameTime
+      );
     }
     // Dota sometimes stops posting before POST_GAME; the winner is set a frame or two earlier.
     const prevWinner = previous.map?.win_team;

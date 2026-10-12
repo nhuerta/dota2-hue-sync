@@ -12,6 +12,16 @@ export const TIMING = {
   WATCHDOG_INTERVAL: 5000,        // 5 seconds
 } as const;
 
+// Multikill and killing spree rules (Dota's own announcer thresholds)
+export const KILL_STREAK = {
+  MULTIKILL_WINDOW_S: 18,   // seconds between kills for a multikill
+  MULTIKILL_NAMES: { 2: 'double_kill', 3: 'triple_kill', 4: 'ultra_kill', 5: 'rampage' } as Record<number, string>,
+  SPREE_NAMES: {
+    3: 'killing_spree', 4: 'dominating', 5: 'mega_kill', 6: 'unstoppable', 7: 'wicked_sick',
+    8: 'monster_kill', 9: 'godlike', 10: 'beyond_godlike'
+  } as Record<number, string>,
+} as const;
+
 // Respawn time formula constants
 export const RESPAWN_FORMULA = {
   BASE: 10,           // Base respawn time in seconds

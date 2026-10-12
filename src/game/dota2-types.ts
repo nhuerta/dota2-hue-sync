@@ -271,5 +271,6 @@ export interface Dota2GameState {
   roshan?: Roshan;
   couriers?: Courier;
   neutralitems?: NeutralItems;
+  auth?: { token?: string };
   previously?: Partial<Dota2GameState>;
 }

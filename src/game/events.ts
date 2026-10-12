@@ -5,13 +5,11 @@ export const GAME_EVENTS = {
         ERROR: 'gsi:error'
     },
     GAME: {
-        RESET: 'game:reset',
         STARTED: 'game:started',
+        FIRST_BLOOD: 'game:first_blood',
         PAUSED: 'game:paused',
         UNPAUSED: 'game:unpaused',
         ENDED: 'game:ended',
-        SCORE_CHANGED: 'game:score_changed',
-        DAY_NIGHT_CHANGED: 'game:day_night_changed',
         RECONNECTED: 'game:reconnected'
     },
     MAP: {
@@ -30,6 +28,8 @@ export const GAME_EVENTS = {
             RESPAWN: 'player:combat:respawn',
             BUYBACK: 'player:combat:buyback',
             RESPAWN_TICK: 'player:combat:respawn_tick',
+            MULTIKILL: 'player:combat:multikill',
+            SPREE: 'player:combat:spree',
         },
         RESOURCES: {
             HEALTH_CHANGED: 'player:resources:health_changed',
@@ -62,7 +62,8 @@ export const GAME_EVENTS = {
             ARROW_CAST: 'hero:mirana:arrow_cast',
             STARFALL: 'hero:mirana:starfall',
             LEAP: 'hero:mirana:leap',
-            MOONLIGHT: 'hero:mirana:moonlight'
+            MOONLIGHT: 'hero:mirana:moonlight',
+            CELESTIAL_QUIVER: 'hero:mirana:celestial_quiver'
         },
         WEAVER: {
             THE_SWARM: 'hero:weaver:the_swarm',

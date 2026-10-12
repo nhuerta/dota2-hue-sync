@@ -104,6 +104,14 @@ describe('fixture match 8200614096 (Mirana)', () => {
     expect(result.dispatcher.ofType('gsi:connected').length).toBe(2);
   });
 
+  test('first blood in the fixture is drawn by Mirana for radiant', () => {
+    const first = result.dispatcher.ofType('game:first_blood');
+    expect(first.length).toBe(1);
+    expect(first[0]?.gameTime).toBe(288);
+    expect(first[0]?.data.team).toBe('radiant');
+    expect(first[0]?.data.own_team).toBe(true);
+  });
+
   test('emits no detector errors', () => {
     expect(result.dispatcher.ofType('gsi:error')).toEqual([]);
   });
@@ -179,6 +187,29 @@ describe('synthetic sequences', () => {
     const { dispatcher } = await replayFrames([frame(899, {}), last]);
     expect(dispatcher.sequence()).toEqual(['gsi:connected', 'game:started', 'game:ended']);
     expect(dispatcher.ofType('game:ended')[0]?.data.victory).toBe(false);
+  });
+
+  test('two kills within 18 s are a double kill; a third 30 s later is not', async () => {
+    const kill = (t: number, kills: number, streak: number) =>
+      frame(t, {}, { player: { kills: kills - 1, kill_streak: streak - 1 } as Dota2GameState['player'] });
+    const seq = [frame(0, {}), kill(10, 1, 1), kill(20, 2, 2), kill(55, 3, 3)];
+    seq.forEach((f, i) => { if (i > 0 && f.payload.player) { f.payload.player.kills = i; f.payload.player.kill_streak = i; } });
+    const { dispatcher } = await replayFrames(seq);
+    expect(dispatcher.ofType('player:combat:kill').length).toBe(3);
+    expect(dispatcher.ofType('player:combat:multikill').map(e => e.data.multikill_name)).toEqual(['double_kill']);
+    expect(dispatcher.ofType('player:combat:spree').map(e => e.data.spree)).toEqual(['killing_spree']);
+  });
+
+  test('first blood fires once when the score leaves 0-0', async () => {
+    const fb = frame(120, {}, { map: { radiant_score: 0, dire_score: 0 } as Dota2GameState['map'], player: { kills: 0 } as Dota2GameState['player'] });
+    fb.payload.map!.dire_score = 1;
+    const later = frame(121, {}, { map: { dire_score: 1 } as Dota2GameState['map'] });
+    later.payload.map!.dire_score = 2;
+    const { dispatcher } = await replayFrames([frame(119, {}), fb, later]);
+    const first = dispatcher.ofType('game:first_blood');
+    expect(first.length).toBe(1);
+    expect(first[0]?.data.team).toBe('dire');
+    expect(first[0]?.data.own_team).toBe(false);
   });
 
   test('unknown effect config keys are rejected at load time', async () => {

@@ -15,14 +15,6 @@ eventDispatcher.on(GAME_EVENTS.GSI.ERROR, (event) => {
 let dotaEffectManager: DotaEffectManager | null = null;
 const gsiRouter = createGSIRoutes(eventDispatcher);
 
-process.on('SIGINT', () => {
-  gsiRouter.close();
-  if (dotaEffectManager) {
-    dotaEffectManager.shutdown();
-  }
-  process.exit(0);
-});
-
 async function initializeLightEffects() {
   try {
     const { DotaEffectManager } = await import('./src/game/dota-effect-manager.ts');
@@ -42,11 +34,21 @@ async function initializeLightEffects() {
 
 initializeLightEffects();
 
-// Dota resolves "localhost" to ::1 first on Windows, so the listener must answer on
-// IPv6 as well as IPv4. Binding "::" gives a dual-stack socket; fall back to IPv4 only.
+// Dota posts to localhost, which Windows resolves to ::1 first, so the listener answers on
+// IPv6 as well as IPv4 ("::" is a dual-stack socket). Anything that is not loopback is
+// refused unless GSI_ALLOW_REMOTE=1.
+const allowRemote = process.env.GSI_ALLOW_REMOTE === '1';
+function isLoopback(address: string): boolean {
+  return address === '::1' || address.startsWith('127.') || address.startsWith('::ffff:127.');
+}
+
 const gsiServer = {
   port: 3003,
-  async fetch(request: Request) {
+  async fetch(request: Request, server: { requestIP(request: Request): { address: string } | null }) {
+    const remote = server.requestIP(request)?.address;
+    if (!allowRemote && remote && !isLoopback(remote)) {
+      return createResponse('Forbidden', { status: 403 });
+    }
     const url = new URL(request.url);
 
     if (request.method === 'OPTIONS') {
@@ -61,9 +63,29 @@ const gsiServer = {
     return createResponse('Not Found', { status: 404 });
   }
 };
+
+let server: ReturnType<typeof Bun.serve>;
 try {
-  Bun.serve({ ...gsiServer, hostname: '::' });
+  server = Bun.serve({ ...gsiServer, hostname: '::' });
 } catch (error) {
   console.log('Dual-stack listener unavailable, falling back to IPv4 only:', error);
-  Bun.serve({ ...gsiServer, hostname: '0.0.0.0' });
+  server = Bun.serve({ ...gsiServer, hostname: '0.0.0.0' });
 }
+console.log(`GSI listener on port ${server.port}${allowRemote ? ' (remote senders allowed)' : ' (loopback only)'}`);
+
+let shuttingDown = false;
+async function shutdown(signal: string) {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+  console.log(`${signal} received, shutting down`);
+  server.stop(true);
+  gsiRouter.close();
+  if (dotaEffectManager) {
+    await dotaEffectManager.shutdown();
+  }
+  process.exit(0);
+}
+process.on('SIGINT', () => { shutdown('SIGINT'); });
+process.on('SIGTERM', () => { shutdown('SIGTERM'); });
