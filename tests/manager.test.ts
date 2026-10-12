@@ -118,6 +118,21 @@ describe('DotaEffectManager', () => {
     expect(calls.at(-1)).toBe('countdownPulse(27)');
   });
 
+  test('a reconnect while dead keeps the running countdown; cold-start events play no effect', async () => {
+    const { clock, calls, emit, inGame } = setup({ 'game:started': { enabled: true, type: 'flashColor', params: { color: 'white', duration: 500 } } });
+    await inGame();
+    await emit(GAME_EVENTS.PLAYER.COMBAT.DEATH, { respawn_seconds: 40 });
+    clock.advance(3000);
+    expect(calls.at(-1)).toBe('countdownPulse(37)');
+    const before = calls.length;
+    // the detector re-reports the state on a reconnect: a match start and the death, both cold_start
+    await emit(GAME_EVENTS.GAME.STARTED, { health_percent: 0, cold_start: true });
+    await emit(GAME_EVENTS.PLAYER.COMBAT.DEATH, { respawn_seconds: 37, cold_start: true });
+    expect(calls.length).toBe(before); // no flash, no second ripple
+    await emit(GAME_EVENTS.PLAYER.COMBAT.DEATH, { respawn_seconds: 20, cold_start: true });
+    expect(calls.at(-1)).toBe('countdownPulse(20)'); // only the clock was re-synced
+  });
+
   test('shutdown stops timers and the wrapper', () => {
     const { calls, manager } = setup();
     manager.shutdown();

@@ -75,7 +75,8 @@ export const GAME_EVENTS = {
             VACUUM: 'hero:dark_seer:vacuum',
             ION_SHELL: 'hero:dark_seer:ion_shell',
             SURGE: 'hero:dark_seer:surge',
-            WALL_OF_REPLICA: 'hero:dark_seer:wall_of_replica'
+            WALL_OF_REPLICA: 'hero:dark_seer:wall_of_replica',
+            NORMAL_PUNCH: 'hero:dark_seer:normal_punch'
         },
         ENCHANTRESS: {
             UNTOUCHABLE: 'hero:enchantress:untouchable',
@@ -89,6 +90,18 @@ export const GAME_EVENTS = {
             DISPERSION: 'hero:spectre:dispersion',
             HAUNT: 'hero:spectre:haunt'
         }
+    },
+    /** One event per notable active item, emitted on the cast only (cooldown leaving zero). */
+    ITEMS: {
+        SOUL_RING: 'item:soul_ring',
+        BLINK: 'item:blink',
+        BLACK_KING_BAR: 'item:black_king_bar',
+        GLIMMER_CAPE: 'item:glimmer_cape',
+        FORCE_STAFF: 'item:force_staff',
+        MEKANSM: 'item:mekansm',
+        GUARDIAN_GREAVES: 'item:guardian_greaves',
+        PIPE: 'item:pipe',
+        TPSCROLL: 'item:tpscroll'
     },
 } as const;
 type Leaves<T> = T extends string ? T : { [K in keyof T]: Leaves<T[K]> }[keyof T];
@@ -144,7 +157,7 @@ export class EventDispatcher {
     };
     if (!QUIET_EVENTS.has(eventType)) {
       const d = data as Record<string, unknown>;
-      const extra = ['ability_name', 'kills', 'assists', 'level', 'health_percent', 'respawn_seconds', 'cold_start', 'error', 'context']
+      const extra = ['ability_name', 'item_name', 'event_type', 'kills', 'assists', 'level', 'health_percent', 'respawn_seconds', 'cold_start', 'error', 'context']
         .filter(k => d[k] !== undefined)
         .map(k => `${k}=${String(d[k])}`)
         .join(' ');

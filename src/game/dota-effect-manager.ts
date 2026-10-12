@@ -111,8 +111,12 @@ export class DotaEffectManager {
   private registerEffectHandlers(): void {
     for (const binding of this.bindings) {
       const priority = binding.priority ?? defaultPriority(binding.event);
-      this.eventDispatcher.on(binding.event, () => {
+      this.eventDispatcher.on(binding.event, (event: GameEvent) => {
         if (!this.isAlive && priority < Priority.CRITICAL) {
+          return;
+        }
+        // A reconnect synthesises the current state (game:started, death); that is not a moment to celebrate.
+        if (event.data.cold_start === true) {
           return;
         }
         this.scheduler.request({
@@ -195,6 +199,11 @@ export class DotaEffectManager {
   }
 
   private onDeath(respawnSeconds: number): void {
+    if (!this.isAlive) {
+      // Already running the death sequence (a reconnect reports the death again): keep it, re-sync the clock.
+      this.onRespawnTick(respawnSeconds);
+      return;
+    }
     this.isAlive = false;
     this.isBreathingActive = false;
     this.clearDeathTimers();

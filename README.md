@@ -30,7 +30,7 @@ Effects address the area's entertainment channels, which the bridge derives from
 ## What the lights do
 
 - **Ambient**: health bar gradient; red breathing under 20 % health; idle blue outside a match.
-- **Events**: death ripple and a countdown that follows the game's respawn timer, respawn flash, buyback, kill, assist, first blood, multikill, killing spree, level up, match start, Roshan and aegis, hero abilities (Mirana, Weaver, Dark Seer, Enchantress, Spectre).
+- **Events**: death ripple and a countdown that follows the game's respawn timer, respawn flash, buyback, kill, assist, first blood, multikill, killing spree, level up, match start, Roshan and aegis, hero abilities (Mirana, Weaver, Dark Seer, Enchantress, Spectre), items (Soul Ring, Blink; other `item:*` keys in `src/game/events.ts`).
 - One effect plays at a time. Equal or higher priority replaces it; lower priority is dropped.
 
 ## Configuration

@@ -71,14 +71,18 @@ const gsiServer = {
   }
 };
 
-let server: ReturnType<typeof Bun.serve>;
-try {
-  server = Bun.serve({ ...gsiServer, hostname: '::' });
-} catch (error) {
-  console.log('Dual-stack listener unavailable, falling back to IPv4 only:', error);
-  server = Bun.serve({ ...gsiServer, hostname: '0.0.0.0' });
+let server: ReturnType<typeof Bun.serve> | null = null;
+// Started only once the lights are subscribed: Dota posts every 100 ms, and the first frame's
+// gsi:connected / game:started would otherwise fire before any handler exists.
+function startListener() {
+  try {
+    server = Bun.serve({ ...gsiServer, hostname: '::' });
+  } catch (error) {
+    console.log('Dual-stack listener unavailable, falling back to IPv4 only:', error);
+    server = Bun.serve({ ...gsiServer, hostname: '0.0.0.0' });
+  }
+  console.log(`GSI listener on port ${server.port}${allowRemote ? ' (remote senders allowed)' : ' (loopback only)'}`);
 }
-console.log(`GSI listener on port ${server.port}${allowRemote ? ' (remote senders allowed)' : ' (loopback only)'}`);
 
 let shuttingDown = false;
 async function shutdown(reason: string, code = 0) {
@@ -87,7 +91,7 @@ async function shutdown(reason: string, code = 0) {
   }
   shuttingDown = true;
   console.log(`${reason}: shutting down`);
-  server.stop(true);
+  server?.stop(true);
   gsiRouter.close();
   dotaEffectManager?.shutdown();
   process.exit(code);
@@ -95,4 +99,5 @@ async function shutdown(reason: string, code = 0) {
 process.on('SIGINT', () => { shutdown('SIGINT'); });
 process.on('SIGTERM', () => { shutdown('SIGTERM'); });
 
-initializeLightEffects();
+await initializeLightEffects();
+startListener();

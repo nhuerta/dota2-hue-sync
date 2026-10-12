@@ -144,7 +144,7 @@
         "color1": "electricBlue",
         "color2": "cyan",
         "speed": 500,
-        "runTime": 3000
+        "runTime": 1500
       }
     },
     "hero:dark_seer:surge": {
@@ -161,6 +161,32 @@
       "params": {
         "color": "indigo",
         "duration": 4000
+      }
+    },
+    "hero:dark_seer:normal_punch": {
+      "enabled": true,
+      "type": "doubleStrike",
+      "params": {
+        "color": "orange",
+        "duration": 1200
+      }
+    },
+    "item:soul_ring": {
+      "enabled": true,
+      "type": "gradientWave",
+      "params": {
+        "color1": "red",
+        "color2": "electricBlue",
+        "duration": 400,
+        "runTime": 800
+      }
+    },
+    "item:blink": {
+      "enabled": true,
+      "type": "flashColor",
+      "params": {
+        "color": "white",
+        "duration": 250
       }
     },
     "hero:enchantress:untouchable": {

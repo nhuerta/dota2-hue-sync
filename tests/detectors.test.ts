@@ -48,11 +48,16 @@ describe('item detector', () => {
     expect(used[0]?.data.sold).toBeUndefined();
   });
 
-  test('a cooldown leaving zero is a use', () => {
+  test('a cooldown leaving zero is a use, and a mapped item also gets its own event', () => {
     const events = run(itemDetector,
       { items: { slot0: item('item_blink', { cooldown: 12 }) } },
       { items: { slot0: item('item_blink', { cooldown: 0 }) } });
-    expect(events.map(e => e.type)).toEqual(['player:items:used']);
+    expect(events.map(e => e.type)).toEqual(['player:items:used', 'item:blink']);
+    // a charge being consumed later (a TP finishing its channel) is a use but not a second cast
+    const charge = run(itemDetector,
+      { items: { slot0: item('item_tpscroll', { cooldown: 90, charges: 1 }) } },
+      { items: { slot0: item('item_tpscroll', { cooldown: 90, charges: 2 }) } });
+    expect(charge.map(e => e.type)).toEqual(['player:items:used']);
   });
 });
 

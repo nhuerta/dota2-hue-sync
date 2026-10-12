@@ -4,6 +4,19 @@ import type { Detector } from './types';
 /** Gold gained in one tick that passive income cannot explain; above it a vanished item was sold. */
 const SOLD_GOLD_MIN = 10;
 
+/** Dota item name -> item event. Only the cast (cooldown transition) fires it, never a charge tick. */
+const ITEM_EVENT_MAP: Record<string, (typeof GAME_EVENTS.ITEMS)[keyof typeof GAME_EVENTS.ITEMS]> = {
+  item_soul_ring: GAME_EVENTS.ITEMS.SOUL_RING,
+  item_blink: GAME_EVENTS.ITEMS.BLINK,
+  item_black_king_bar: GAME_EVENTS.ITEMS.BLACK_KING_BAR,
+  item_glimmer_cape: GAME_EVENTS.ITEMS.GLIMMER_CAPE,
+  item_force_staff: GAME_EVENTS.ITEMS.FORCE_STAFF,
+  item_mekansm: GAME_EVENTS.ITEMS.MEKANSM,
+  item_guardian_greaves: GAME_EVENTS.ITEMS.GUARDIAN_GREAVES,
+  item_pipe: GAME_EVENTS.ITEMS.PIPE,
+  item_tpscroll: GAME_EVENTS.ITEMS.TPSCROLL
+};
+
 /**
  * Item usage comes from cooldown and charge drops per slot. Purchases and drops are diffed by
  * item name across every changed slot, so moving an item between slots cancels out and a recipe
@@ -32,7 +45,12 @@ export const itemDetector: Detector = {
         usage.charges_used = before.charges - after.charges;
       }
       if (Object.keys(usage).length > 0) {
-        emit(GAME_EVENTS.PLAYER.ITEMS.USED, { item_name: after.name, slot, ...usage });
+        const data = { item_name: after.name, slot, ...usage };
+        emit(GAME_EVENTS.PLAYER.ITEMS.USED, data);
+        const itemEvent = after.name !== undefined && usage.cooldown !== undefined ? ITEM_EVENT_MAP[after.name] : undefined;
+        if (itemEvent) {
+          emit(itemEvent, data);
+        }
       }
       if (before.name !== undefined && after.name !== undefined && before.name !== after.name) {
         if (before.name !== 'empty') {

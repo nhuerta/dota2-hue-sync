@@ -22,7 +22,8 @@ export const HERO_ABILITY_MAP: Readonly<Record<string, Readonly<Record<string, G
     dark_seer_vacuum: GAME_EVENTS.HEROES.DARK_SEER.VACUUM,
     dark_seer_ion_shell: GAME_EVENTS.HEROES.DARK_SEER.ION_SHELL,
     dark_seer_surge: GAME_EVENTS.HEROES.DARK_SEER.SURGE,
-    dark_seer_wall_of_replica: GAME_EVENTS.HEROES.DARK_SEER.WALL_OF_REPLICA
+    dark_seer_wall_of_replica: GAME_EVENTS.HEROES.DARK_SEER.WALL_OF_REPLICA,
+    dark_seer_normal_punch: GAME_EVENTS.HEROES.DARK_SEER.NORMAL_PUNCH
   },
   npc_dota_hero_enchantress: {
     enchantress_untouchable: GAME_EVENTS.HEROES.ENCHANTRESS.UNTOUCHABLE,
