@@ -4,6 +4,7 @@ import {getNumber} from '../server/utils';
 import {type EffectConfig, EffectConfigLoader, type EffectsConfiguration} from './effect-config-loader';
 import {EffectRegistry} from './effect-registry';
 import {APP_CONFIG} from '../config/app-config';
+import {GAME_STATES} from './constants';
 
 export class DotaEffectManager {
     private hue: Hue;
@@ -84,12 +85,6 @@ export class DotaEffectManager {
             }
         );
 
-        this.eventDispatcher.on(
-            GAME_EVENTS.PLAYER.COMBAT.BUYBACK,
-            (_event: GameEvent) => {
-                this.onRespawn();
-            }
-        );
 
         this.eventDispatcher.on(
             GAME_EVENTS.GAME.STARTED,
@@ -108,15 +103,7 @@ export class DotaEffectManager {
         this.eventDispatcher.on(
             GAME_EVENTS.GAME.ENDED,
             (_event: GameEvent) => {
-                this.isInGame = false;
-                this.isAlive = true;
-                this.isBreathingActive = false;
-                this.clearDeathTimers();
-                if (this.currentEffectTimer) {
-                    clearTimeout(this.currentEffectTimer);
-                    this.currentEffectTimer = null;
-                }
-                this.updateHealthDisplay();
+                this.leaveGame();
             }
         );
 
@@ -129,15 +116,50 @@ export class DotaEffectManager {
                 }
 
                 const mapState = state.map as { game_state?: string } | undefined;
-                const heroState = state.hero as { alive?: boolean; respawn_seconds?: number } | undefined;
+                const heroState = state.hero as { alive?: boolean; respawn_seconds?: number; health_percent?: number } | undefined;
 
-                if (mapState?.game_state === 'DOTA_GAMERULES_STATE_GAME_IN_PROGRESS') {
-                    if (heroState?.alive === false && heroState?.respawn_seconds && heroState.respawn_seconds > 0) {
+                this.isInGame = mapState?.game_state === GAME_STATES.GAME_IN_PROGRESS;
+                if (typeof heroState?.health_percent === 'number') {
+                    this.currentHealth = heroState.health_percent;
+                }
+                if (!this.isInGame) {
+                    return;
+                }
+                // Dota stops posting during a pause; when frames resume the hero may still be
+                // dead. Only start a death sequence if we did not already know about it.
+                if (heroState?.alive === false && heroState?.respawn_seconds && heroState.respawn_seconds > 0) {
+                    if (this.isAlive) {
                         this.onDeath(heroState.respawn_seconds);
                     }
+                } else if (!this.isAlive) {
+                    this.onRespawn();
                 }
             }
         );
+
+        // Dota stops posting on pause, on leaving the match, and often before POST_GAME.
+        // The lights drop to idle until frames return.
+        this.eventDispatcher.on(
+            GAME_EVENTS.GSI.DISCONNECTED,
+            (_event: GameEvent) => {
+                if (!this.isInGame) {
+                    return;
+                }
+                console.log('[effect] GSI disconnected, going idle');
+                this.leaveGame();
+            }
+        );
+    }
+
+    private leaveGame(): void {
+        this.isInGame = false;
+        this.isAlive = true;
+        this.clearDeathTimers();
+        if (this.currentEffectTimer) {
+            clearTimeout(this.currentEffectTimer);
+            this.currentEffectTimer = null;
+        }
+        this.updateHealthDisplay();
     }
 
     private registerEffectHandlers(): void {

@@ -12,7 +12,16 @@ export const GAME_EVENTS = {
         UNPAUSED: 'game:unpaused',
         ENDED: 'game:ended',
         SCORE_CHANGED: 'game:score_changed',
-        DAY_NIGHT_CHANGED: 'game:day_night_changed'
+        DAY_NIGHT_CHANGED: 'game:day_night_changed',
+        RECONNECTED: 'game:reconnected'
+    },
+    MAP: {
+        COURIER_KILLED: 'map:courier_killed',
+        ROSHAN_KILLED: 'map:roshan_killed',
+        AEGIS_PICKED_UP: 'map:aegis_picked_up',
+        AEGIS_DENIED: 'map:aegis_denied',
+        BOUNTY_RUNE_PICKUP: 'map:bounty_rune_pickup',
+        TIP: 'map:tip'
     },
     PLAYER: {
         COMBAT: {
@@ -36,6 +45,16 @@ export const GAME_EVENTS = {
         ABILITIES: {
             USED: 'player:abilities:used',
             UPGRADED: 'player:abilities:upgraded',
+        },
+        STATUS: {
+            SILENCED: 'player:status:silenced',
+            STUNNED: 'player:status:stunned',
+            DISARMED: 'player:status:disarmed',
+            MAGIC_IMMUNE: 'player:status:magic_immune',
+            HEXED: 'player:status:hexed',
+            MUTED: 'player:status:muted',
+            BREAK: 'player:status:break',
+            SMOKED: 'player:status:smoked'
         },
     },
     HEROES: {
@@ -71,18 +90,24 @@ export const GAME_EVENTS = {
         }
     },
 } as const;
-export type GameEventType =
-  | 'gsi:connected' | 'gsi:disconnected' | 'gsi:data' | 'gsi:error'
-  | 'game:reset' | 'game:started' | 'game:paused' | 'game:unpaused' | 'game:ended' | 'game:score_changed' | 'game:day_night_changed'
-  | 'player:combat:kill' | 'player:combat:death' | 'player:combat:assist' | 'player:combat:respawn' | 'player:combat:buyback'
-  | 'player:resources:health_changed' | 'player:resources:mana_changed' | 'player:resources:gold_changed' | 'player:resources:level_up'
-  | 'player:items:used' | 'player:items:purchased' | 'player:items:dropped'
-  | 'player:abilities:used' | 'player:abilities:upgraded'
-  | 'hero:mirana:arrow_cast' | 'hero:mirana:starfall' | 'hero:mirana:leap' | 'hero:mirana:moonlight'
-  | 'hero:weaver:the_swarm' | 'hero:weaver:shukuchi' | 'hero:weaver:germinate_attack' | 'hero:weaver:time_lapse'
-  | 'hero:dark_seer:vacuum' | 'hero:dark_seer:ion_shell' | 'hero:dark_seer:surge' | 'hero:dark_seer:wall_of_replica'
-  | 'hero:enchantress:untouchable' | 'hero:enchantress:enchant' | 'hero:enchantress:natures_attendants' | 'hero:enchantress:impetus'
-  | 'hero:spectre:spectral_dagger' | 'hero:spectre:desolate' | 'hero:spectre:dispersion' | 'hero:spectre:haunt';
+type Leaves<T> = T extends string ? T : { [K in keyof T]: Leaves<T[K]> }[keyof T];
+/** Every event the detector can emit, derived from GAME_EVENTS so the two cannot drift apart. */
+export type GameEventType = Leaves<typeof GAME_EVENTS>;
+
+function collectLeaves(node: unknown, into: string[]): string[] {
+  if (typeof node === 'string') {
+    into.push(node);
+  } else if (node && typeof node === 'object') {
+    for (const value of Object.values(node)) {
+      collectLeaves(value, into);
+    }
+  }
+  return into;
+}
+export const ALL_EVENT_TYPES: ReadonlySet<string> = new Set(collectLeaves(GAME_EVENTS, []));
+export function isGameEventType(value: string): value is GameEventType {
+  return ALL_EVENT_TYPES.has(value);
+}
 export type EventData = Record<string, unknown>;
 export interface GameEvent {
   type: GameEventType | string;

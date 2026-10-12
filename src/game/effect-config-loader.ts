@@ -1,5 +1,6 @@
 import type { EffectParams } from './effect-registry';
 import { COLORS } from '@nhuerta/node-hue-edk';
+import { isGameEventType } from './events';
 
 export interface EffectConfig {
   enabled: boolean;
@@ -53,6 +54,10 @@ export class EffectConfigLoader {
     for (const [eventKey, effectConfig] of Object.entries(effects)) {
       if (typeof effectConfig !== 'object' || effectConfig === null) {
         throw new Error(`Effect "${eventKey}" must be an object`);
+      }
+
+      if (!isGameEventType(eventKey)) {
+        throw new Error(`Effect "${eventKey}" is not a known event; event keys use colons, e.g. player:combat:kill`);
       }
 
       const effect = effectConfig as Record<string, unknown>;

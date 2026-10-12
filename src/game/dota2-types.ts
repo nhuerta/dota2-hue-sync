@@ -1,3 +1,5 @@
+import type { DotaGameState } from './constants';
+
 export interface Provider {
   name: string;
   appid: number;
@@ -13,7 +15,7 @@ export interface GameMap {
   nightstalker_night: boolean;
   radiant_score: number;
   dire_score: number;
-  game_state: string;
+  game_state: DotaGameState;
   paused: boolean;
   win_team: string;
   customgamename: string;
@@ -114,9 +116,12 @@ export interface Buildings {
   radiant?: Record<string, Building>;
   dire?: Record<string, Building>;
 }
+export type MapEventType =
+  | 'courier_killed' | 'roshan_killed' | 'aegis_picked_up' | 'aegis_denied' | 'bounty_rune_pickup' | 'tip';
+/** One entry of the `events[]` node. Dota repeats recent entries on every frame. */
 export interface GameEvent {
   game_time: number;
-  event_type: string;
+  event_type: MapEventType | string;
   player_id?: number;
   team?: string;
   bounty_value?: number;
