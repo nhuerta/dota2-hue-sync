@@ -14,3 +14,6 @@ bridge.json
 
 
 
+
+# raw GSI recordings; gzip the useful ones into fixtures/
+recordings/
