@@ -61,7 +61,7 @@ describe('DotaEffectManager', () => {
     expect(calls.at(-1)).toBe('countdownPulse(37)');
     clock.advance(37000);
     await emit(GAME_EVENTS.PLAYER.COMBAT.RESPAWN, {});
-    expect(calls.at(-1)).toBe('gradientWave({"r":0,"g":255,"b":0},{"r":255,"g":255,"b":255},1000,1500)');
+    expect(calls.at(-1)).toBe('gradientWave({"r":0,"g":255,"b":50},{"r":255,"g":255,"b":255},1000,1500)');
     clock.advance(1500);
     expect(calls.at(-1)).toBe('percentageBar(100)');
   });
