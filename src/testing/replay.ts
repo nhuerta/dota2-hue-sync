@@ -24,7 +24,7 @@ export function loadFixture(path: string): FixtureFrame[] {
 export class RecordingDispatcher extends EventDispatcher {
   readonly events: GameEvent[] = [];
 
-  override async emit(eventType: GameEventType | string, data: EventData, gameTime?: number): Promise<void> {
+  override async emit(eventType: GameEventType, data: EventData, gameTime?: number): Promise<void> {
     this.events.push({ type: eventType, timestamp: Date.now(), gameTime, data });
   }
 

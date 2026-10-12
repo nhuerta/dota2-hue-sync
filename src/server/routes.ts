@@ -1,13 +1,12 @@
-import { EventDispatcher } from '../game/events';
-import { GAME_EVENTS } from '../game/events';
-import { GameEventDetector } from '../game/detector';
+import { EventDispatcher, GAME_EVENTS } from '../game/events';
+import { GameEventDetector } from '../game/detectors';
 import type { Dota2GameState } from '../game/dota2-types';
 import { TIMING } from '../game/constants';
 import { createRecorderFromEnv, type FrameRecorder } from './recorder';
 
 export interface GSIState {
   eventDispatcher: EventDispatcher;
-  gameEventDetector: GameEventDetector;
+  detector: GameEventDetector;
   recorder: FrameRecorder | null;
   /** When set, frames whose auth.token differs are rejected (GSI_AUTH_TOKEN). */
   authToken: string | null;
@@ -15,12 +14,16 @@ export interface GSIState {
   lastDataReceived: number;
 }
 
-let watchdogInterval: ReturnType<typeof setInterval> | null = null;
+export interface GSIRouter {
+  readonly state: GSIState;
+  handle(request: Request, url: URL): Promise<Response | null>;
+  close(): void;
+}
 
 export function createGSIState(eventDispatcher: EventDispatcher, recorder: FrameRecorder | null = null, authToken: string | null = null): GSIState {
   return {
     eventDispatcher,
-    gameEventDetector: new GameEventDetector(eventDispatcher),
+    detector: new GameEventDetector(),
     recorder,
     authToken,
     isConnected: false,
@@ -28,34 +31,28 @@ export function createGSIState(eventDispatcher: EventDispatcher, recorder: Frame
   };
 }
 
-export function createGSIRoutes(eventDispatcher: EventDispatcher) {
+/** The HTTP side of GSI: owns its state, watchdog and recorder; nothing lives at module level. */
+export function createGSIRoutes(eventDispatcher: EventDispatcher): GSIRouter {
   const state = createGSIState(eventDispatcher, createRecorderFromEnv(), process.env.GSI_AUTH_TOKEN || null);
   if (state.authToken) {
     console.log('GSI auth token required on every frame');
   }
-  startConnectionWatchdog(state);
+  const watchdog = setInterval(() => {
+    checkConnectionTimeout(state).catch(error => console.error('Watchdog error:', error));
+  }, TIMING.WATCHDOG_INTERVAL);
   return {
     state,
     async handle(request: Request, url: URL): Promise<Response | null> {
-      const { method } = request;
-      const { pathname } = url;
-      if (method === 'POST' && pathname === '/') {
+      if (request.method === 'POST' && url.pathname === '/') {
         return handleGSIData(request, state);
       }
       return null;
     },
     close(): void {
-      stopConnectionWatchdog();
+      clearInterval(watchdog);
       state.recorder?.close();
     }
   };
-}
-
-export function stopConnectionWatchdog(): void {
-  if (watchdogInterval) {
-    clearInterval(watchdogInterval);
-    watchdogInterval = null;
-  }
 }
 
 /** One-line description of a raw frame, logged whenever the pipeline changes connection state. */
@@ -73,7 +70,7 @@ export function describeFrame(frame: Dota2GameState): string {
 }
 
 /**
- * Runs one frame through the full pipeline: connection tracking, detection, and the raw-data event.
+ * Runs one frame through the full pipeline: connection tracking, detection, dispatch.
  * Shared by the HTTP handler and the replay harness so tests exercise the same code path as a match.
  * `now` is wall-clock in the server and the capture time during replay.
  */
@@ -100,7 +97,13 @@ export async function ingestGSIData(gsiData: Dota2GameState, state: GSIState, no
     });
   }
   state.lastDataReceived = now;
-  await state.gameEventDetector.processGSIData(gsiData);
+  const events = state.detector.detect(gsiData);
+  if (events.some(event => event.data.cold_start === true)) {
+    console.log(`[gsi] cold start on frame: ${describeFrame(gsiData)}`);
+  }
+  for (const event of events) {
+    await state.eventDispatcher.emit(event.type, event.data, event.gameTime);
+  }
 }
 
 /** Marks the connection lost if no frame arrived within the disconnect timeout. */
@@ -128,13 +131,4 @@ async function handleGSIData(request: Request, state: GSIState): Promise<Respons
     await state.eventDispatcher.emit(GAME_EVENTS.GSI.ERROR, { error: String(error) });
     return new Response('Error processing data', { status: 500 });
   }
-}
-
-function startConnectionWatchdog(state: GSIState): void {
-  if (watchdogInterval) {
-    clearInterval(watchdogInterval);
-  }
-  watchdogInterval = setInterval(() => {
-    checkConnectionTimeout(state).catch(error => console.error('Watchdog error:', error));
-  }, TIMING.WATCHDOG_INTERVAL);
 }

@@ -1,4 +1,3 @@
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -25,8 +24,4 @@ export function createResponse(
       ...headers
     }
   });
-}
-
-export function getNumber(value: unknown, defaultValue: number = 0): number {
-  return typeof value === 'number' ? value : defaultValue;
 }

@@ -111,7 +111,7 @@ export function isGameEventType(value: string): value is GameEventType {
 }
 export type EventData = Record<string, unknown>;
 export interface GameEvent {
-  type: GameEventType | string;
+  type: GameEventType;
   timestamp: number;
   gameTime?: number;
   data: EventData;
@@ -126,7 +126,7 @@ const QUIET_EVENTS = new Set<string>([
 ]);
 
 export class EventDispatcher {
-  private handlers: Map<GameEventType | string, Set<EventHandler>> = new Map();
+  private handlers: Map<GameEventType, Set<EventHandler>> = new Map();
 
   on(eventType: GameEventType, handler: EventHandler): void {
     if (!this.handlers.has(eventType)) {
@@ -135,7 +135,7 @@ export class EventDispatcher {
     this.handlers.get(eventType)!.add(handler);
   }
 
-  async emit(eventType: GameEventType | string, data: EventData, gameTime?: number): Promise<void> {
+  async emit(eventType: GameEventType, data: EventData, gameTime?: number): Promise<void> {
     const event: GameEvent = {
       type: eventType,
       timestamp: Date.now(),

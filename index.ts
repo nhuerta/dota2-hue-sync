@@ -15,24 +15,26 @@ eventDispatcher.on(GAME_EVENTS.GSI.ERROR, (event) => {
 let dotaEffectManager: DotaEffectManager | null = null;
 const gsiRouter = createGSIRoutes(eventDispatcher);
 
+// Without lights this program has no purpose, so a failed Hue start-up exits non-zero.
+// HUE_DISABLED=1 runs the GSI side alone (recording fixtures, debugging detection).
 async function initializeLightEffects() {
+  if (process.env.HUE_DISABLED === '1') {
+    console.log('HUE_DISABLED=1: running without lights');
+    return;
+  }
   try {
     const { DotaEffectManager } = await import('./src/game/dota-effect-manager.ts');
     dotaEffectManager = new DotaEffectManager(eventDispatcher);
-
-    const started = await dotaEffectManager.initialize();
-
-    if (!started) {
-      console.log('DotaEffectManager initialization failed');
-    } else {
-      console.log('DotaEffectManager initialized successfully');
+    if (await dotaEffectManager.initialize()) {
+      console.log('Light effects ready');
+      return;
     }
+    console.error('Hue initialization failed after retries; check .env and that no other app streams to the area');
   } catch (error) {
-    console.log('Error during initialization:', error);
+    console.error('Hue initialization error:', error);
   }
+  await shutdown('Hue failure', 1);
 }
-
-initializeLightEffects();
 
 // Dota posts to localhost, which Windows resolves to ::1 first, so the listener answers on
 // IPv6 as well as IPv4 ("::" is a dual-stack socket). Anything that is not loopback is
@@ -74,18 +76,20 @@ try {
 console.log(`GSI listener on port ${server.port}${allowRemote ? ' (remote senders allowed)' : ' (loopback only)'}`);
 
 let shuttingDown = false;
-async function shutdown(signal: string) {
+async function shutdown(reason: string, code = 0) {
   if (shuttingDown) {
     return;
   }
   shuttingDown = true;
-  console.log(`${signal} received, shutting down`);
+  console.log(`${reason}: shutting down`);
   server.stop(true);
   gsiRouter.close();
   if (dotaEffectManager) {
     await dotaEffectManager.shutdown();
   }
-  process.exit(0);
+  process.exit(code);
 }
 process.on('SIGINT', () => { shutdown('SIGINT'); });
 process.on('SIGTERM', () => { shutdown('SIGTERM'); });
+
+initializeLightEffects();

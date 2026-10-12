@@ -1,6 +1,6 @@
 import {EventDispatcher, GAME_EVENTS, type GameEvent} from './events';
 import {type Color, COLORS, Hue} from '@nhuerta/node-hue-edk';
-import {getNumber} from '../server/utils';
+import {getNumber} from '../util/number';
 import {type EffectBinding, loadEffectsConfig} from './effect-config-loader';
 import {runEffect} from './effect-catalog';
 import {EffectScheduler, Priority} from './effect-scheduler';
