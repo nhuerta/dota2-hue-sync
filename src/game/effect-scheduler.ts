@@ -49,7 +49,7 @@ const realClock: SchedulerClock = {
 };
 
 export class EffectScheduler {
-  private readonly clock: SchedulerClock;
+  readonly clock: SchedulerClock;
   private current: EffectRequest | null = null;
   private currentTimer: unknown = null;
   private ambient: (() => void) | null = null;

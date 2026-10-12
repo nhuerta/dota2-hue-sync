@@ -2,7 +2,10 @@ import * as dotenv from 'dotenv';
 import {EventDispatcher, GAME_EVENTS} from './src/game/events';
 import {createGSIRoutes} from './src/server/routes';
 import {createResponse} from './src/server/utils';
-import type {DotaEffectManager} from './src/game/dota-effect-manager';
+import {DotaEffectManager} from './src/game/dota-effect-manager';
+import {connectHue} from './src/game/hue-connection';
+import {loadEffectsConfig} from './src/game/effect-config-loader';
+import {APP_CONFIG} from './src/config/app-config';
 
 dotenv.config();
 
@@ -23,15 +26,17 @@ async function initializeLightEffects() {
     return;
   }
   try {
-    const { DotaEffectManager } = await import('./src/game/dota-effect-manager.ts');
-    dotaEffectManager = new DotaEffectManager(eventDispatcher);
-    if (await dotaEffectManager.initialize()) {
+    const bindings = await loadEffectsConfig();
+    const hue = await connectHue(APP_CONFIG);
+    if (hue) {
+      dotaEffectManager = new DotaEffectManager(eventDispatcher, hue, bindings);
+      dotaEffectManager.start();
       console.log('Light effects ready');
       return;
     }
     console.error('Hue initialization failed after retries; check .env and that no other app streams to the area');
   } catch (error) {
-    console.error('Hue initialization error:', error);
+    console.error('Hue initialization error:', error instanceof Error ? error.message : error);
   }
   await shutdown('Hue failure', 1);
 }
@@ -84,9 +89,7 @@ async function shutdown(reason: string, code = 0) {
   console.log(`${reason}: shutting down`);
   server.stop(true);
   gsiRouter.close();
-  if (dotaEffectManager) {
-    await dotaEffectManager.shutdown();
-  }
+  dotaEffectManager?.shutdown();
   process.exit(code);
 }
 process.on('SIGINT', () => { shutdown('SIGINT'); });

@@ -1,32 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { EffectScheduler, Priority, type SchedulerClock } from '../src/game/effect-scheduler';
-
-/** Manual clock: timers fire when `advance` passes their due time, in due order. */
-class TestClock implements SchedulerClock {
-  private time = 0;
-  private timers: { due: number; fn: () => void; id: number }[] = [];
-  private nextId = 1;
-  now() { return this.time; }
-  setTimeout(fn: () => void, ms: number) {
-    const id = this.nextId++;
-    this.timers.push({ due: this.time + ms, fn, id });
-    return id;
-  }
-  clearTimeout(handle: unknown) {
-    this.timers = this.timers.filter(t => t.id !== handle);
-  }
-  advance(ms: number) {
-    const target = this.time + ms;
-    for (;;) {
-      const next = this.timers.filter(t => t.due <= target).sort((a, b) => a.due - b.due)[0];
-      if (!next) { break; }
-      this.time = next.due;
-      this.timers = this.timers.filter(t => t.id !== next.id);
-      next.fn();
-    }
-    this.time = target;
-  }
-}
+import { EffectScheduler, Priority } from '../src/game/effect-scheduler';
+import { TestClock } from '../src/testing/clock';
 
 function setup() {
   const clock = new TestClock();
