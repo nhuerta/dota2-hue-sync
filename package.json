@@ -9,8 +9,9 @@
     "start": "bun run index.ts",
     "showcase": "bun run scripts/showcase-effects.ts",
     "typecheck": "bun node_modules/typescript/bin/tsc --noEmit",
-    "lint": "eslint '*.ts' 'src/**/*.ts' 'scripts/*.ts'",
-    "lint:fix": "eslint '*.ts' 'src/**/*.ts' 'scripts/*.ts' --fix"
+    "lint": "eslint '*.ts' 'src/**/*.ts' 'scripts/*.ts' 'tests/**/*.ts'",
+    "lint:fix": "eslint '*.ts' 'src/**/*.ts' 'scripts/*.ts' 'tests/**/*.ts' --fix",
+    "test": "bun test"
   },
   "dependencies": {
     "@nhuerta/node-hue-edk": "github:nhuerta/node-hue-edk#v1.1.0",

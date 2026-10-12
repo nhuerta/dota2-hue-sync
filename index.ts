@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv';
 import {EventDispatcher, GAME_EVENTS} from './src/game/events';
-import {createGSIRoutes, stopConnectionWatchdog} from './src/server/routes';
+import {createGSIRoutes} from './src/server/routes';
 import {createResponse} from './src/server/utils';
 import type {DotaEffectManager} from './src/game/dota-effect-manager';
 
@@ -13,9 +13,10 @@ eventDispatcher.on(GAME_EVENTS.GSI.ERROR, (event) => {
   console.error('GSI Error:', event.data.error);
 });
 let dotaEffectManager: DotaEffectManager | null = null;
+const gsiRouter = createGSIRoutes(eventDispatcher);
 
 process.on('SIGINT', () => {
-  stopConnectionWatchdog();
+  gsiRouter.close();
   if (dotaEffectManager) {
     dotaEffectManager.shutdown();
   }
@@ -40,8 +41,6 @@ async function initializeLightEffects() {
 }
 
 initializeLightEffects();
-
-const gsiRouter = createGSIRoutes(eventDispatcher);
 
 // Dota resolves "localhost" to ::1 first on Windows, so the listener must answer on
 // IPv6 as well as IPv4. Binding "::" gives a dual-stack socket; fall back to IPv4 only.
