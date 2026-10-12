@@ -33,8 +33,9 @@ function setup() {
   const scheduler = new EffectScheduler(clock);
   const log: string[] = [];
   scheduler.setAmbient(() => log.push('ambient'));
-  const effect = (name: string, priority: Priority, duration: number, preempt?: 'lower' | 'all') => ({
-    name, priority, duration, preempt, run: () => log.push(name)
+  log.length = 0;
+  const effect = (name: string, priority: Priority, duration: number) => ({
+    name, priority, duration, run: () => log.push(name)
   });
   return { clock, scheduler, log, effect };
 }
@@ -42,7 +43,6 @@ function setup() {
 describe('EffectScheduler', () => {
   test('plays immediately when idle and restores ambient when done', () => {
     const { clock, scheduler, log, effect } = setup();
-    log.length = 0;
     scheduler.request(effect('kill', Priority.HIGH, 3000));
     expect(log).toEqual(['kill']);
     clock.advance(2999);
@@ -52,22 +52,17 @@ describe('EffectScheduler', () => {
     expect(scheduler.isPlaying()).toBe(false);
   });
 
-  test('a level-up on the same tick as a kill waits for the kill instead of replacing it', () => {
+  test('a level-up on the same tick as a kill is dropped instead of replacing it', () => {
     const { clock, scheduler, log, effect } = setup();
-    log.length = 0;
     scheduler.request(effect('kill', Priority.HIGH, 3000));
     scheduler.request(effect('level_up', Priority.NORMAL, 2000));
     expect(log).toEqual(['kill']);
-    expect(scheduler.queuedNames()).toEqual(['level_up']);
     clock.advance(3000);
-    expect(log).toEqual(['kill', 'level_up']);
-    clock.advance(2000);
-    expect(log).toEqual(['kill', 'level_up', 'ambient']);
+    expect(log).toEqual(['kill', 'ambient']);
   });
 
   test('a higher priority request preempts a running lower one', () => {
     const { clock, scheduler, log, effect } = setup();
-    log.length = 0;
     scheduler.request(effect('leap', Priority.LOW, 1500));
     scheduler.request(effect('kill', Priority.HIGH, 3000));
     expect(log).toEqual(['leap', 'kill']);
@@ -78,53 +73,26 @@ describe('EffectScheduler', () => {
     expect(log).toEqual(['leap', 'kill', 'ambient']);
   });
 
-  test('equal priority requests play in order; abilities cut each other off no more', () => {
+  test('equal priority replaces, so the latest ability cast is what shows', () => {
     const { clock, scheduler, log, effect } = setup();
-    log.length = 0;
     scheduler.request(effect('starfall', Priority.LOW, 2500));
     scheduler.request(effect('leap', Priority.LOW, 1500));
-    expect(log).toEqual(['starfall']);
-    clock.advance(2500);
     expect(log).toEqual(['starfall', 'leap']);
+    expect(scheduler.currentName()).toBe('leap');
+    clock.advance(1500);
+    expect(log).toEqual(['starfall', 'leap', 'ambient']);
   });
 
-  test('stale queued effects are dropped instead of playing late', () => {
-    const { clock, scheduler, log, effect } = setup();
-    log.length = 0;
-    scheduler.request(effect('kill', Priority.HIGH, 5000));
-    scheduler.request(effect('level_up', Priority.NORMAL, 2000));
-    clock.advance(5000);
-    expect(log).toEqual(['kill', 'ambient']);
-    expect(scheduler.queuedNames()).toEqual([]);
-  });
-
-  test('queue is ordered by priority then arrival', () => {
-    const { clock, scheduler, log, effect } = setup();
-    log.length = 0;
-    scheduler.request(effect('kill', Priority.HIGH, 1000));
-    scheduler.request(effect('arrow', Priority.LOW, 500));
-    scheduler.request(effect('assist', Priority.NORMAL, 500));
-    scheduler.request(effect('starfall', Priority.LOW, 500));
-    expect(scheduler.queuedNames()).toEqual(['assist', 'arrow', 'starfall']);
-    clock.advance(1000);
-    expect(log).toEqual(['kill', 'assist']);
-  });
-
-  test('preempt all stops the current effect and empties the queue', () => {
-    const { clock, scheduler, log, effect } = setup();
-    log.length = 0;
+  test('clear stops the current effect and repaints ambient', () => {
+    const { scheduler, log, effect } = setup();
     scheduler.request(effect('kill', Priority.HIGH, 3000));
-    scheduler.request(effect('assist', Priority.NORMAL, 1000));
-    scheduler.request(effect('death', Priority.CRITICAL, 40000, 'all'));
-    expect(log).toEqual(['kill', 'death']);
-    expect(scheduler.queuedNames()).toEqual([]);
-    clock.advance(3000);
-    expect(scheduler.currentName()).toBe('death');
+    scheduler.clear('test');
+    expect(log).toEqual(['kill', 'ambient']);
+    expect(scheduler.isPlaying()).toBe(false);
   });
 
   test('ambient is replaced, never queued, and refresh only paints while idle', () => {
     const { scheduler, log, effect } = setup();
-    log.length = 0;
     scheduler.request(effect('kill', Priority.HIGH, 3000));
     scheduler.refreshAmbient();
     scheduler.setAmbient(() => log.push('ambient2'));

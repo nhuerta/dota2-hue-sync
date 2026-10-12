@@ -4,12 +4,12 @@
  * Two layers:
  * - the ambient layer (idle colour, health bar, critical-health breathing) is a single callback
  *   that repaints whenever nothing else is playing; it is replaced, never queued;
- * - the effect layer is a priority queue. A request preempts a running effect of lower priority,
- *   waits behind one of equal or higher priority, and is dropped if it waited too long to still
- *   make sense (a level-up flash three seconds late is noise).
+ * - the effect layer holds at most one effect. A request of higher or equal priority replaces
+ *   the running one, so ability spam always shows the latest cast; a request of lower priority
+ *   is dropped. Nothing is ever played late.
  *
- * Every effect has a finite duration; when it ends the next queued one starts, or the ambient
- * layer is restored. Timers are injected so tests can drive the clock by hand.
+ * Every effect has a finite duration; when it ends the ambient layer is restored. Timers are
+ * injected so tests can drive the clock by hand.
  */
 
 export enum Priority {
@@ -34,26 +34,12 @@ export interface EffectRequest {
   duration: number;
   /** Starts the effect on the lights. Called at most once. */
   run: () => void;
-  /**
-   * `lower` (default): preempt only a running effect of lower priority, otherwise queue.
-   * `all`: stop whatever is running, drop the queue, play now.
-   */
-  preempt?: 'lower' | 'all';
-  /** Drop the request if it has waited longer than this, in ms. Defaults to DEFAULT_MAX_WAIT. */
-  maxWait?: number;
 }
 
 export interface SchedulerClock {
   now(): number;
   setTimeout(fn: () => void, ms: number): unknown;
   clearTimeout(handle: unknown): void;
-}
-
-export const DEFAULT_MAX_WAIT = 4000;
-
-interface QueuedRequest extends EffectRequest {
-  seq: number;
-  enqueuedAt: number;
 }
 
 const realClock: SchedulerClock = {
@@ -64,11 +50,9 @@ const realClock: SchedulerClock = {
 
 export class EffectScheduler {
   private readonly clock: SchedulerClock;
-  private queue: QueuedRequest[] = [];
-  private current: QueuedRequest | null = null;
+  private current: EffectRequest | null = null;
   private currentTimer: unknown = null;
   private ambient: (() => void) | null = null;
-  private seq = 0;
   /** Called after every start, finish or drop, with a one-line description. */
   onTrace: ((line: string) => void) | null = null;
 
@@ -99,36 +83,19 @@ export class EffectScheduler {
     return this.current?.name ?? null;
   }
 
-  queuedNames(): string[] {
-    return this.queue.map(entry => entry.name);
-  }
-
   request(req: EffectRequest): void {
     if (!(req.duration > 0) || !Number.isFinite(req.duration)) {
       throw new Error(`Effect ${req.name} needs a finite positive duration, got ${req.duration}`);
     }
-    const entry: QueuedRequest = { ...req, seq: this.seq++, enqueuedAt: this.clock.now() };
-    if (req.preempt === 'all') {
-      this.queue = [];
-      this.start(entry, this.current ? `preempting ${this.current.name} and clearing queue` : undefined);
+    if (this.current && req.priority < this.current.priority) {
+      this.trace(`dropped ${req.name} p${req.priority}: ${this.current.name} p${this.current.priority} is playing`);
       return;
     }
-    if (!this.current) {
-      this.start(entry);
-      return;
-    }
-    if (entry.priority > this.current.priority) {
-      this.start(entry, `preempting ${this.current.name}`);
-      return;
-    }
-    this.queue.push(entry);
-    this.queue.sort((a, b) => b.priority - a.priority || a.seq - b.seq);
-    this.trace(`queued ${entry.name} behind ${this.current.name} (${this.queue.length} waiting)`);
+    this.start(req, this.current ? `replacing ${this.current.name}` : undefined);
   }
 
-  /** Stop the running effect, drop the queue and repaint the ambient layer. */
+  /** Stop the running effect and repaint the ambient layer. */
   clear(reason = 'cleared'): void {
-    this.queue = [];
     if (this.current) {
       this.trace(`${reason}: stopped ${this.current.name}`);
     }
@@ -136,36 +103,21 @@ export class EffectScheduler {
     this.paintAmbient();
   }
 
-  private start(entry: QueuedRequest, note?: string): void {
+  private start(req: EffectRequest, note?: string): void {
     this.stopCurrent();
-    this.current = entry;
-    this.trace(`start ${entry.name} p${entry.priority} ${entry.duration}ms${note ? ` (${note})` : ''}`);
-    entry.run();
-    this.currentTimer = this.clock.setTimeout(() => this.finish(entry), entry.duration);
+    this.current = req;
+    this.trace(`start ${req.name} p${req.priority} ${req.duration}ms${note ? ` (${note})` : ''}`);
+    req.run();
+    this.currentTimer = this.clock.setTimeout(() => this.finish(req), req.duration);
   }
 
-  private finish(entry: QueuedRequest): void {
-    if (this.current !== entry) {
+  private finish(req: EffectRequest): void {
+    if (this.current !== req) {
       return;
     }
     this.current = null;
     this.currentTimer = null;
-    this.trace(`done ${entry.name}`);
-    this.startNext();
-  }
-
-  private startNext(): void {
-    const now = this.clock.now();
-    while (this.queue.length > 0) {
-      const next = this.queue.shift()!;
-      const waited = now - next.enqueuedAt;
-      if (waited > (next.maxWait ?? DEFAULT_MAX_WAIT)) {
-        this.trace(`dropped ${next.name} after waiting ${waited}ms`);
-        continue;
-      }
-      this.start(next);
-      return;
-    }
+    this.trace(`done ${req.name}`);
     this.paintAmbient();
   }
 

@@ -59,8 +59,9 @@ event log. Items are grouped by the phase of the consolidation plan they belong 
 - [x] `events[]` node consumed (`map:*`, deduped); hero status flags as `player:status:*`.
 - [x] Effect config rejects unknown event keys and priorities at load time; `GameEventType` derived from
       `GAME_EVENTS`.
-- [x] Priority scheduler with preemption, queueing, stale-drop and finite durations; ambient layer
-      (idle / health bar / breathing) separate from the queue.
+- [x] Priority arbitration for effects (equal or higher replaces, lower is dropped, nothing plays late);
+      ambient layer (idle / health bar / breathing) separate from effects. A queue was tried first and
+      removed: it only added late effects.
 - [x] Death countdown follows `hero.respawn_seconds` (`player:combat:respawn_tick`), re-synced on drift.
 - [x] GSI cfg trimmed to the seven nodes read; heartbeat 5 s. `gsi:data` payload spread removed.
 - [x] `mirana_celestial_quiver`, multikill (18 s window), killing spree, first blood, buyback effects.

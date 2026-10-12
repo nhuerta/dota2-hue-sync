@@ -242,7 +242,6 @@ export class DotaEffectManager {
         this.scheduler.request({
             name: 'death',
             priority: Priority.CRITICAL,
-            preempt: 'all',
             duration: Math.max(DEATH_RIPPLE_MS, respawnSeconds * 1000),
             run: () => {
                 this.hue.rippleGradient(COLORS.darkRed, 2000, 1000);
@@ -293,7 +292,6 @@ export class DotaEffectManager {
         this.scheduler.request({
             name: 'respawn',
             priority: Priority.CRITICAL,
-            preempt: 'all',
             duration: RESPAWN_EFFECT_MS,
             run: () => this.hue.gradientWave(COLORS.brightGreen, COLORS.white, 1000, RESPAWN_EFFECT_MS)
         });

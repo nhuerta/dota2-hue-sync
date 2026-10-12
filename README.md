@@ -9,7 +9,7 @@ Synchronizes Philips Hue entertainment lights with Dota 2 through Game State Int
 - Critical health (≤ 20 %): red breathing
 - Out of game: steady idle blue
 
-**Event effects** (scheduled by priority, see below)
+**Event effects** (one at a time, arbitrated by priority, see below)
 - Death: red ripple, then a countdown pulse that follows the game's own respawn timer, then a respawn flash
 - Buyback, kill, assist, first blood, multikill (double to rampage), killing spree (3 to 10+)
 - Level up, match start
@@ -145,7 +145,7 @@ Dota 2 → HTTP POST → routes.ts (ingest) → GameEventDetector → EventDispa
 
 1. **Ingest** (`src/server/routes.ts`): records the frame if `GSI_RECORD_DIR` is set, tracks the connection (a watchdog fires `gsi:disconnected` after 10 s without frames), hands the frame to the detector.
 2. **Detector** (`src/game/detector.ts`): diffs the frame against Dota's `previously` block, or against the last frame it saw when `previously` is missing (heartbeats, first frame after a pause). Only the very first frame, or a change of match id, is a cold start. Death and respawn follow `hero.alive`; buyback follows `hero.buyback_cooldown`; match end follows `POST_GAME` or `win_team`; item purchases and drops are diffed by name so recipe combines and slot moves are not drops.
-3. **Scheduler** (`src/game/effect-scheduler.ts`): a priority queue. A request preempts a running effect of lower priority, waits behind one of equal or higher priority, and is dropped if it waited more than 4 s. Every effect has a finite duration. The ambient layer is a painter that runs whenever the queue is empty; it is replaced, never queued.
+3. **Scheduler** (`src/game/effect-scheduler.ts`): holds at most one effect. A request of equal or higher priority replaces the running one, so ability spam always shows the latest cast; a lower priority request is dropped. Nothing plays late. Every effect has a finite duration, and the ambient layer is a painter that runs whenever no effect is playing.
 4. **Manager** (`src/game/dota-effect-manager.ts`): maps events to scheduler requests, paints the ambient layer, and runs the death sequence. The countdown is re-synced from `hero.respawn_seconds`, so a pause does not desync it. When Dota stops posting (pause, leaving, often before `POST_GAME`) the lights drop to idle until frames return.
 5. **Hue** (`@nhuerta/node-hue-edk`): native wrapper around the Hue Entertainment Development Kit streaming at 60 Hz.
 
@@ -181,4 +181,4 @@ To add a match: run with `GSI_RECORD_DIR=recordings`, play, then gzip the `.json
 
 **Effects not triggering**
 - `"enabled": true` in `config/effects-config.json`, valid colour names, and a known event key (the loader reports the offending key).
-- The console logs `[event] …` for every detected event and `[scheduler] …` for every start, queue, drop and finish.
+- The console logs `[event] …` for every detected event and `[scheduler] …` for every start, replacement, drop and finish.
