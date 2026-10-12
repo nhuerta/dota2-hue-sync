@@ -1,80 +1,78 @@
 # Pending fixes
 
-Ranked by how often each one showed up in the first full live match
-(2026-10-11, 46 min, Mirana, 3/15/18). Evidence counts are from that match's
-event log. Items are grouped by the phase of the consolidation plan they belong to.
+Backlog for dota2-hue-sync. The 2026-10-11 review scored the repo 3/3/2/3 (architecture,
+performance, design, maintainability); the items under "Done" are what closed each finding.
 
 ## Open
 
-### Needs a decision or a live match
+### Needs a live match
 
-- [ ] **Verify on a live match** with `GSI_RECORD_DIR` set: the scheduler, the game-clock countdown
-      across a pause, buyback, and the idle drop on disconnect have only been exercised by replay
-      and synthetic frames. Gzip the recording into `fixtures/` afterwards.
-- [ ] **Per-segment effects.** The Living Room entertainment area has one channel bundling all 7 gradient
-      segments, so every effect is one colour. Recreate the area with per-segment positions via
-      `POST /clip/v2/resource/entertainment_configuration` (see memory cheatsheet) to get 7 channels.
-      Changes the bridge configuration; do it deliberately.
-- [ ] **Archive `dota2-hue`, `dota2-gsi-minimal`, `dota2-gsi-c` and `../old_shit`**; scrub the two committed
-      OBS passwords (`old_shit/dota2-gamestate-logger/.env`, `dota2-gsi-service/.env`) first. Sibling repos,
-      not touched from here.
+- [ ] **Play a match with `GSI_RECORD_DIR` set.** The scheduler, the game-clock countdown across a
+      pause, buyback, and the idle drop on disconnect are covered by replay, synthetic frames and
+      manager tests, but not by a real game yet. Gzip the recording into `fixtures/` afterwards.
+- [ ] **Check what `player.kill_streak` counts.** The fixture shows a streak of 7 with 3 kills; spree
+      thresholds assume it is consecutive kills without dying.
+
+### Needs a decision
+
+- [ ] **Per-segment effects.** The Living Room entertainment area has one channel bundling all 7
+      gradient segments, so every effect is one colour. Recreate the area with per-segment positions
+      via `POST /clip/v2/resource/entertainment_configuration` to get 7 channels. Changes the bridge.
+- [ ] **Archive `dota2-hue`, `dota2-gsi-minimal`, `dota2-gsi-c` and `../old_shit`**; scrub the two
+      committed OBS passwords first. Sibling repos, not touched from here.
 
 ### node-hue-edk (sibling repo)
 
-- [ ] Wrapper prints nothing for most effects.
-- [ ] `Hue.initialize()` leaves the EDK thread alive on failure so `process.exit` can hang (seen in diag
-      scripts, timeout 124). The dota2-hue-sync smoke test with an unreachable bridge shows the same.
+- [ ] `Hue.initialize()` leaves the EDK thread alive on failure so `process.exit` can hang.
+- [ ] `Hue` reads `bridge.json` from the working directory and ignores `HUE_BRIDGE_IP` when that file
+      exists, so a fake-bridge smoke test connects to the real bridge.
+- [ ] Wrapper prints nothing for most effects (the app logs `[effect]` itself now).
 
 ### Nice to have
 
-- [ ] **Arrow-hit vs arrow-cast** distinction from minimap enemy positions (unvalidated idea in
-      `../old_shit/dota2-gsi-replay-capture/gamestate/mirana.js:258-284`). Needs `minimap` back in the
-      GSI cfg, which costs ~38 MB per match of payload.
-- [ ] **Port the declarative transition-rule table and light FSM** from `../dota2-gsi-service`
-      only if the detector branches become hard to read. Refactor, not a fix.
-- [ ] `showcase-effects.ts` is 987 lines with a hand-maintained effect table; generate it from the
-      wrapper's method list instead. (The duplicate module name is resolved: `scripts/showcase-catalog.ts`.)
-- [ ] `player:resources:gold_changed` and `mana_changed` are emitted (quietly) but nothing consumes them.
-- [ ] Spree thresholds come from `player.kill_streak`; the fixture shows streaks above the player's kill
-      count, so check what Dota counts in that field on the next live match.
+- [ ] Arrow-hit vs arrow-cast from minimap enemy positions; needs `minimap` back in the GSI cfg
+      (~38 MB per match of payload).
+- [ ] `player:resources:gold_changed` and `mana_changed` are emitted quietly with no consumer.
+- [ ] `EventDispatcher` logs to the console itself; inject a logger if output ever needs routing.
 
 ## Done
 
-### 2026-10-12
+### 2026-10-12, second pass (architecture)
 
-- [x] Fixture `fixtures/match_8200614096.jsonl.gz` (1,924 unique frames, 18 heartbeats, 3 deaths) imported
-      and deduped by `scripts/import-fixtures.py`; JSONL recorder behind `GSI_RECORD_DIR`; replay harness
-      (`src/testing/replay.ts`) running the real ingest path; 28 tests (`bun test`).
-- [x] Cold start no longer re-fires `game:started` or restarts the death sequence after a pause: frames
-      without `previously` are diffed against the last frame; only the first frame or a match-id change is
-      a cold start. Raw frame logged on connect and cold start.
-- [x] Buyback detected from `hero.buyback_cooldown` rising; the following respawn carries `buyback: true`;
-      the manager no longer plays the respawn effect twice.
-- [x] Death and respawn follow `hero.alive`.
-- [x] Match end also from `map.win_team`; once per match. GSI disconnect while in game drops the lights
-      to idle; reconnect restores the health bar or the running death countdown.
-- [x] Recipe combines and slot moves are not drops (items diffed by name per frame); a new match no longer
-      reports the inventory as sold.
-- [x] Full `DOTA_GameState` enum typed; `game:reconnected` on `DISCONNECT -> *`.
-- [x] `events[]` node consumed (`map:*`, deduped); hero status flags as `player:status:*`.
-- [x] Effect config rejects unknown event keys and priorities at load time; `GameEventType` derived from
+- [x] Effect catalog (`src/game/effect-catalog.ts`) is the single source of truth: parameters,
+      defaults, length, wrapper call. Config loader validates against it (unknown type, parameter,
+      colour, priority; missing required parameter). Showcase generated from it (987 -> 102 lines).
+- [x] Detector split into pure, synchronous per-domain detectors under `src/game/detectors/`; the
+      coordinator returns events and knows nothing about the dispatcher. No `Promise.all` over sync
+      work, common fields built once per frame, no `Date` per event.
+- [x] `DotaEffectManager` is constructed with a connected `Hue`, the validated bindings and a
+      scheduler; `connectHue()` owns the retry loop; `index.ts` is the composition root. Manager state
+      machine tested under a manual clock with a recording fake Hue.
+- [x] `EventDispatcher.emit` typed with `GameEventType` only; `GameEventType` derived from
       `GAME_EVENTS`.
-- [x] Priority arbitration for effects (equal or higher replaces, lower is dropped, nothing plays late);
-      ambient layer (idle / health bar / breathing) separate from effects. A queue was tried first and
-      removed: it only added late effects.
-- [x] Death countdown follows `hero.respawn_seconds` (`player:combat:respawn_tick`), re-synced on drift.
-- [x] GSI cfg trimmed to the seven nodes read; heartbeat 5 s. `gsi:data` payload spread removed.
-- [x] `mirana_celestial_quiver`, multikill (18 s window), killing spree, first blood, buyback effects.
-- [x] README rewritten to match the code (colon keys, priorities, recorder, tests). Dead constants
-      `game:reset`, `game:score_changed`, `game:day_night_changed` removed.
-- [x] SIGTERM handled, server stopped on shutdown, optional `GSI_AUTH_TOKEN`, non-loopback senders refused
-      unless `GSI_ALLOW_REMOTE=1`.
+- [x] `routes.ts` owns watchdog, recorder and state; no module-level mutable state. `game` no longer
+      imports from `server` (`src/util/number.ts`).
+- [x] Hue start-up failure exits 1 after retries; `HUE_DISABLED=1` runs GSI-only.
+- [x] Scheduler simplified to one effect, preempt-or-drop; the queue was tried and removed.
+- [x] 49 tests: fixture replay (1,924 frames), synthetic sequences, pure detectors, config and
+      catalog, scheduler, manager.
+
+### 2026-10-12, first pass (behaviour)
+
+- [x] Fixture `fixtures/match_8200614096.jsonl.gz`, `GSI_RECORD_DIR` recorder, replay harness.
+- [x] Heartbeats and resume-after-pause diffed against the last frame; cold start only on the first
+      frame or a match-id change. Fixed `game:started` re-firing and the death countdown restarting.
+- [x] Death and respawn from `hero.alive`; buyback from `hero.buyback_cooldown`; match end also from
+      `map.win_team`, once per match; disconnect drops to idle; reconnect restores state.
+- [x] Items diffed by name: combines and slot moves are not drops; a new match is not a sale.
+- [x] `map:*` events, `player:status:*` flags, `game:reconnected`, full `DOTA_GameState` enum.
+- [x] Countdown follows `hero.respawn_seconds` (`player:combat:respawn_tick`), re-synced on drift.
+- [x] GSI cfg trimmed to the seven nodes read, heartbeat 5 s; `gsi:data` spread removed.
+- [x] Celestial Quiver, multikill, killing spree, first blood, buyback effects.
+- [x] `GSI_AUTH_TOKEN`, loopback-only listener, SIGTERM, server stopped on shutdown.
 
 ### 2026-10-11
 
-- [x] node-hue-edk v1.1.0: connect tolerates multiple entertainment areas, `selectGroup` reports the real
-      result, `getGroups()`, numeric group id -> Clip v2 UUID resolution. Rebuilt Windows prebuild.
-- [x] Critical-health breathing loop stopped on recovery and on leaving the game.
-- [x] Hue initialization retries (6 x 3 s) when the bridge still holds a previous instance's stream.
-- [x] GSI listener dual-stack (IPv6 + IPv4) so `localhost` resolves either way.
-- [x] One-line `[event]` and `[effect]` logging, 10 Hz events muted.
+- [x] node-hue-edk v1.1.0: multi-area connect, real `selectGroup` result, `getGroups()`,
+      numeric group id -> Clip v2 UUID.
+- [x] Breathing stopped on recovery; init retries; dual-stack listener; `[event]`/`[effect]` logs.
