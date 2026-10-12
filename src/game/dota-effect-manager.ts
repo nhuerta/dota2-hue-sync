@@ -1,9 +1,9 @@
-import {EventDispatcher, GAME_EVENTS, type GameEvent, type GameEventType} from './events';
+import {EventDispatcher, GAME_EVENTS, type GameEvent} from './events';
 import {type Color, COLORS, Hue} from '@nhuerta/node-hue-edk';
 import {getNumber} from '../server/utils';
-import {type EffectConfig, EffectConfigLoader, type EffectsConfiguration} from './effect-config-loader';
-import {EffectRegistry} from './effect-registry';
-import {EffectScheduler, PRIORITY_NAMES, Priority} from './effect-scheduler';
+import {type EffectBinding, loadEffectsConfig} from './effect-config-loader';
+import {runEffect} from './effect-catalog';
+import {EffectScheduler, Priority} from './effect-scheduler';
 import {APP_CONFIG} from '../config/app-config';
 import {GAME_STATES} from './constants';
 
@@ -41,7 +41,7 @@ export class DotaEffectManager {
     private readonly INIT_ATTEMPTS = 6;
     private readonly INIT_RETRY_MS = 3000;
     private eventDispatcher: EventDispatcher;
-    private effectsConfig: EffectsConfiguration | null = null;
+    private bindings: EffectBinding[] = [];
     private readonly scheduler: EffectScheduler;
     private currentHealth: number = 100;
     private isBreathingActive: boolean = false;
@@ -77,7 +77,7 @@ export class DotaEffectManager {
             return false;
         }
 
-        this.effectsConfig = await EffectConfigLoader.load();
+        this.bindings = await loadEffectsConfig();
 
         this.registerStateHandlers();
         this.registerEffectHandlers();
@@ -159,42 +159,24 @@ export class DotaEffectManager {
     }
 
     private registerEffectHandlers(): void {
-        if (!this.effectsConfig) {
-            return;
-        }
-        for (const [eventKey, effectConfig] of Object.entries(this.effectsConfig.effects)) {
-            if (!effectConfig.enabled) {
-                continue;
-            }
-            const duration = this.getEffectDuration(effectConfig);
-            const configured = effectConfig.priority ? PRIORITY_NAMES[effectConfig.priority] : undefined;
-            const priority = configured ?? defaultPriority(eventKey);
-            this.eventDispatcher.on(eventKey as GameEventType, () => {
+        for (const binding of this.bindings) {
+            const priority = binding.priority ?? defaultPriority(binding.event);
+            this.eventDispatcher.on(binding.event, () => {
                 if (!this.isAlive && priority < Priority.CRITICAL) {
                     return;
                 }
                 this.scheduler.request({
-                    name: eventKey,
+                    name: binding.event,
                     priority,
-                    duration,
+                    duration: binding.lengthMs,
                     run: () => {
                         this.isBreathingActive = false;
-                        EffectRegistry.execute(this.hue, effectConfig.type, effectConfig.params);
+                        console.log(`[effect] ${binding.type} for ${binding.event}`);
+                        runEffect(this.hue, binding.type, binding.params);
                     }
                 });
             });
         }
-    }
-
-    private getEffectDuration(effectConfig: EffectConfig): number {
-        const params = effectConfig.params as Record<string, unknown>;
-        if (typeof params.runTime === 'number' && params.runTime > 0) {
-            return params.runTime;
-        }
-        if (typeof params.duration === 'number' && params.duration > 0) {
-            return params.duration;
-        }
-        return 2000;
     }
 
     /** Background layer: what the strip shows when no effect is playing. */

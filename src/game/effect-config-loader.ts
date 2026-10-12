@@ -1,12 +1,12 @@
-import type { EffectParams } from './effect-registry';
-import { COLORS } from '@nhuerta/node-hue-edk';
-import { isGameEventType } from './events';
-import { PRIORITY_NAMES } from './effect-scheduler';
+import { isGameEventType, type GameEventType } from './events';
+import { PRIORITY_NAMES, type Priority } from './effect-scheduler';
+import { effectLengthMs, resolveParams, type ResolvedParams } from './effect-catalog';
 
+/** One entry of config/effects-config.json as written. */
 export interface EffectConfig {
   enabled: boolean;
   type: string;
-  params: EffectParams;
+  params: Record<string, unknown>;
   /** Scheduling priority; defaults per event (see defaultPriority in dota-effect-manager). */
   priority?: 'low' | 'normal' | 'high' | 'critical';
 }
@@ -16,99 +16,81 @@ export interface EffectsConfiguration {
   effects: Record<string, EffectConfig>;
 }
 
-export class EffectConfigLoader {
-  private static readonly CONFIG_PATH = './config/effects-config.json';
+/** An enabled entry after validation: params resolved, length known, priority a number if set. */
+export interface EffectBinding {
+  event: GameEventType;
+  type: string;
+  params: ResolvedParams;
+  lengthMs: number;
+  priority?: Priority;
+}
 
-  public static async load(): Promise<EffectsConfiguration> {
-    const file = Bun.file(this.CONFIG_PATH);
-    const exists = await file.exists();
+export const DEFAULT_CONFIG_PATH = './config/effects-config.json';
 
-    if (!exists) {
-      throw new Error(`Effects configuration file not found at ${this.CONFIG_PATH}`);
-    }
+function fail(eventKey: string, message: string): never {
+  throw new Error(`effects-config "${eventKey}": ${message}`);
+}
 
-    const config = await file.json();
-    this.validate(config);
-
-    const enabledCount = Object.values(config.effects).filter(e => e.enabled).length;
-    const totalCount = Object.keys(config.effects).length;
-    console.log(`Loaded effects configuration: ${enabledCount}/${totalCount} effects enabled`);
-
-    return config;
+/**
+ * Validates a parsed effects config and returns the enabled bindings. Every problem is reported
+ * with the event key and parameter so it is one line to fix. Pure, so it is unit tested directly.
+ */
+export function parseEffectsConfig(config: unknown): EffectBinding[] {
+  if (typeof config !== 'object' || config === null) {
+    throw new Error('effects-config: must be an object');
   }
-
-  private static validate(config: unknown): asserts config is EffectsConfiguration {
-    if (typeof config !== 'object' || config === null) {
-      throw new Error('Effects configuration must be an object');
-    }
-
-    const cfg = config as Record<string, unknown>;
-
-    if (typeof cfg.version !== 'string') {
-      throw new Error('Effects configuration missing required "version" field (string)');
-    }
-
-    if (typeof cfg.effects !== 'object' || cfg.effects === null) {
-      throw new Error('Effects configuration missing required "effects" field (object)');
-    }
-
-    const effects = cfg.effects as Record<string, unknown>;
-
-    for (const [eventKey, effectConfig] of Object.entries(effects)) {
-      if (typeof effectConfig !== 'object' || effectConfig === null) {
-        throw new Error(`Effect "${eventKey}" must be an object`);
-      }
-
-      if (!isGameEventType(eventKey)) {
-        throw new Error(`Effect "${eventKey}" is not a known event; event keys use colons, e.g. player:combat:kill`);
-      }
-
-      const effect = effectConfig as Record<string, unknown>;
-
-      if (typeof effect.enabled !== 'boolean') {
-        throw new Error(`Effect "${eventKey}" missing required "enabled" field (boolean)`);
-      }
-
-      if (typeof effect.type !== 'string') {
-        throw new Error(`Effect "${eventKey}" missing required "type" field (string)`);
-      }
-
-      if (typeof effect.params !== 'object' || effect.params === null) {
-        throw new Error(`Effect "${eventKey}" missing required "params" field (object)`);
-      }
-
-      if (effect.priority !== undefined && !(typeof effect.priority === 'string' && effect.priority in PRIORITY_NAMES)) {
-        throw new Error(`Effect "${eventKey}" has an unknown priority "${String(effect.priority)}"; use low, normal, high or critical`);
-      }
-
-      this.validateColors(eventKey, effect.params as Record<string, unknown>);
-    }
+  const cfg = config as Record<string, unknown>;
+  if (typeof cfg.version !== 'string') {
+    throw new Error('effects-config: missing "version" (string)');
   }
-
-  private static validateColors(eventKey: string, params: Record<string, unknown>): void {
-    const validColors = Object.keys(COLORS);
-
-    for (const [paramName, paramValue] of Object.entries(params)) {
-      if (typeof paramValue === 'string' && (paramName.includes('color') || paramName.includes('Color'))) {
-        if (!validColors.includes(paramValue)) {
-          throw new Error(
-            `Effect "${eventKey}" has invalid color "${paramValue}" in parameter "${paramName}". ` +
-            `Valid colors: ${validColors.join(', ')}`
-          );
-        }
-      }
-
-      if (Array.isArray(paramValue) && paramName === 'colorSequence') {
-        for (let i = 0; i < paramValue.length; i++) {
-          const colorName = paramValue[i];
-          if (typeof colorName === 'string' && !validColors.includes(colorName)) {
-            throw new Error(
-              `Effect "${eventKey}" has invalid color "${colorName}" at index ${i} in colorSequence. ` +
-              `Valid colors: ${validColors.join(', ')}`
-            );
-          }
-        }
-      }
-    }
+  if (typeof cfg.effects !== 'object' || cfg.effects === null) {
+    throw new Error('effects-config: missing "effects" (object)');
   }
+  const bindings: EffectBinding[] = [];
+  for (const [eventKey, raw] of Object.entries(cfg.effects as Record<string, unknown>)) {
+    if (!isGameEventType(eventKey)) {
+      fail(eventKey, 'not a known event; keys use colons, e.g. player:combat:kill');
+    }
+    if (typeof raw !== 'object' || raw === null) {
+      fail(eventKey, 'must be an object');
+    }
+    const effect = raw as Record<string, unknown>;
+    if (typeof effect.enabled !== 'boolean') {
+      fail(eventKey, 'missing "enabled" (boolean)');
+    }
+    if (typeof effect.type !== 'string') {
+      fail(eventKey, 'missing "type" (string)');
+    }
+    if (typeof effect.params !== 'object' || effect.params === null) {
+      fail(eventKey, 'missing "params" (object)');
+    }
+    let priority: Priority | undefined;
+    if (effect.priority !== undefined) {
+      if (typeof effect.priority !== 'string' || !(effect.priority in PRIORITY_NAMES)) {
+        fail(eventKey, `unknown priority ${JSON.stringify(effect.priority)}; use low, normal, high or critical`);
+      }
+      priority = PRIORITY_NAMES[effect.priority];
+    }
+    let params: ResolvedParams;
+    try {
+      params = resolveParams(effect.type, effect.params as Record<string, unknown>);
+    } catch (error) {
+      fail(eventKey, error instanceof Error ? error.message : String(error));
+    }
+    if (!effect.enabled) {
+      continue;
+    }
+    bindings.push({ event: eventKey, type: effect.type, params, lengthMs: effectLengthMs(effect.type, params), priority });
+  }
+  return bindings;
+}
+
+export async function loadEffectsConfig(path: string = DEFAULT_CONFIG_PATH): Promise<EffectBinding[]> {
+  const file = Bun.file(path);
+  if (!(await file.exists())) {
+    throw new Error(`Effects configuration file not found at ${path}`);
+  }
+  const bindings = parseEffectsConfig(await file.json());
+  console.log(`Loaded effects configuration: ${bindings.length} effects enabled`);
+  return bindings;
 }
