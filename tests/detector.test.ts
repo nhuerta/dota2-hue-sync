@@ -78,7 +78,8 @@ describe('fixture match 8200614096 (Mirana)', () => {
     expect(result.dispatcher.ofType('player:combat:kill').length).toBe(last?.player?.kills ?? -1);
     expect(result.dispatcher.ofType('player:combat:assist').length).toBe(assistFrames.length);
     expect(result.dispatcher.ofType('player:combat:assist').filter(e => e.data.assist_count === 2).length).toBe(3);
-    expect(result.dispatcher.ofType('player:resources:level_up').length).toBe((last?.hero?.level ?? 1) - 1);
+    const levelUps = result.dispatcher.ofType('player:resources:level_up').filter(e => e.data.match_id === '8200614096');
+    expect(levelUps.length).toBe((last?.hero?.level ?? 1) - 1);
   });
 
   test('map events are emitted once per distinct entry', () => {

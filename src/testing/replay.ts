@@ -36,7 +36,7 @@ export class RecordingDispatcher extends EventDispatcher {
   sequence(): string[] {
     return this.events
       .map(event => event.type)
-      .filter(type => type !== 'gsi:data' && !type.startsWith('player:resources:'));
+      .filter(type => type !== 'player:combat:respawn_tick' && !type.startsWith('player:resources:'));
   }
 }
 

@@ -403,6 +403,13 @@ export class GameEventDetector {
         }
         await this.eventDispatcher.emit(GAME_EVENTS.PLAYER.COMBAT.BUYBACK, buybackData, gameTime);
       }
+      if (current.hero.alive === false && previous.hero.respawn_seconds !== undefined &&
+          current.hero.respawn_seconds !== undefined && current.hero.respawn_seconds !== previous.hero.respawn_seconds) {
+        await this.eventDispatcher.emit(GAME_EVENTS.PLAYER.COMBAT.RESPAWN_TICK,
+          { respawn_seconds: current.hero.respawn_seconds, game_time: gameTime },
+          gameTime
+        );
+      }
       if (previous.hero.alive === false && current.hero.alive === true) {
         const buyback = this.buybackPending;
         this.buybackPending = false;
@@ -451,7 +458,8 @@ export class GameEventDetector {
   }
 
   private async detectLevelChanges(current: Dota2GameState, previous: Partial<Dota2GameState>) {
-    if (previous.hero?.level !== undefined && current.hero?.level) {
+    // Level 0 -> 1 is the hero being assigned at pick, not a level-up.
+    if (previous.hero?.level !== undefined && previous.hero.level > 0 && current.hero?.level) {
       if (current.hero.level > previous.hero.level) {
         await this.eventDispatcher.emit(GAME_EVENTS.PLAYER.RESOURCES.LEVEL_UP,
           this.buildCommonEventData(current, {

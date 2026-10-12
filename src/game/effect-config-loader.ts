@@ -1,11 +1,14 @@
 import type { EffectParams } from './effect-registry';
 import { COLORS } from '@nhuerta/node-hue-edk';
 import { isGameEventType } from './events';
+import { PRIORITY_NAMES } from './effect-scheduler';
 
 export interface EffectConfig {
   enabled: boolean;
   type: string;
   params: EffectParams;
+  /** Scheduling priority; defaults per event (see defaultPriority in dota-effect-manager). */
+  priority?: 'low' | 'normal' | 'high' | 'critical';
 }
 
 export interface EffectsConfiguration {
@@ -72,6 +75,10 @@ export class EffectConfigLoader {
 
       if (typeof effect.params !== 'object' || effect.params === null) {
         throw new Error(`Effect "${eventKey}" missing required "params" field (object)`);
+      }
+
+      if (effect.priority !== undefined && !(typeof effect.priority === 'string' && effect.priority in PRIORITY_NAMES)) {
+        throw new Error(`Effect "${eventKey}" has an unknown priority "${String(effect.priority)}"; use low, normal, high or critical`);
       }
 
       this.validateColors(eventKey, effect.params as Record<string, unknown>);

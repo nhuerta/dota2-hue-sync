@@ -2,7 +2,6 @@ export const GAME_EVENTS = {
     GSI: {
         CONNECTED: 'gsi:connected',
         DISCONNECTED: 'gsi:disconnected',
-        DATA: 'gsi:data',
         ERROR: 'gsi:error'
     },
     GAME: {
@@ -30,6 +29,7 @@ export const GAME_EVENTS = {
             ASSIST: 'player:combat:assist',
             RESPAWN: 'player:combat:respawn',
             BUYBACK: 'player:combat:buyback',
+            RESPAWN_TICK: 'player:combat:respawn_tick',
         },
         RESOURCES: {
             HEALTH_CHANGED: 'player:resources:health_changed',
@@ -118,7 +118,7 @@ export interface GameEvent {
 export type EventHandler = (event: GameEvent) => void | Promise<void>;
 // High-frequency events that would flood the console (every 100 ms tick)
 const QUIET_EVENTS = new Set<string>([
-  'gsi:data',
+  'player:combat:respawn_tick',
   'player:resources:health_changed',
   'player:resources:mana_changed',
   'player:resources:gold_changed'

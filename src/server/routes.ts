@@ -95,7 +95,6 @@ export async function ingestGSIData(gsiData: Dota2GameState, state: GSIState, no
   }
   state.lastDataReceived = now;
   await state.gameEventDetector.processGSIData(gsiData);
-  await state.eventDispatcher.emit(GAME_EVENTS.GSI.DATA, { ...gsiData });
 }
 
 /** Marks the connection lost if no frame arrived within the disconnect timeout. */
